@@ -1,0 +1,68 @@
+{
+  "expo": {
+    "name": "Missão Barra",
+    "slug": "missao-barra",
+    "scheme": "missaobarra",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "br.missaobarra.app"
+    },
+    "android": {
+      "package": "br.missaobarra.app",
+      "adaptiveIcon": {
+        "backgroundColor": "#C93C05",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_BACKGROUND_LOCATION",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-notifications",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "A Missão Barra usa sua localização só durante o percurso, para a equipe de apoio (ou seus amigos) saber onde você está.",
+          "locationAlwaysAndWhenInUsePermission": "Permita \"Sempre\" para o acompanhamento continuar com a tela bloqueada. Ele para quando você finaliza o percurso.",
+          "isIosBackgroundLocationEnabled": true,
+          "isAndroidBackgroundLocationEnabled": true,
+          "isAndroidForegroundServiceEnabled": true
+        }
+      ]
+    ],
+    "extra": {
+      "hasMapsKey": false,
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "f1f9e090-e263-40ea-b0db-48d52a133698"
+      }
+    },
+    "owner": "rafacsasuke",
+    "runtimeVersion": {
+      "policy": "sdkVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/f1f9e090-e263-40ea-b0db-48d52a133698"
+    }
+  }
+}

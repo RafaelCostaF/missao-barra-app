@@ -1,0 +1,95 @@
+# Fluxo completo de um participante num evento oficial (requer `npm run demo` no Supabase local).
+# Rodar: maestro test .maestro/official-event.yaml
+appId: br.missaobarra.app
+---
+- launchApp:
+    clearState: true
+    permissions:
+      all: unset
+- extendedWaitUntil:
+    visible: "MISSÃO BARRA"
+    timeout: 60000
+- takeScreenshot: .maestro/screenshots/01-login
+
+# Cadastro
+- tapOn: "CRIAR CONTA →"
+- tapOn: "Seu nome"
+- inputText: "Participante Maestro"
+- tapOn: "E-mail"
+- inputRandomEmail
+- tapOn: "Senha"
+- inputText: "senha-forte-123"
+- hideKeyboard
+- tapOn: "CRIAR CONTA →"
+- runFlow:
+    when:
+      visible: "Allow"
+    commands:
+      - tapOn: "Allow" # notificações (Android 13+)
+
+# Lista de eventos → percurso
+- extendedWaitUntil:
+    visible: "MISSÃO BARRA — ENSAIO DE CAMPO"
+    timeout: 20000
+- takeScreenshot: .maestro/screenshots/02-eventos
+- tapOn: "ABRIR PERCURSO →"
+- extendedWaitUntil:
+    visible: "ENTENDI, QUERO COMPARTILHAR →"
+    timeout: 15000
+- takeScreenshot: .maestro/screenshots/03-consentimento
+- tapOn: "ENTENDI, QUERO COMPARTILHAR →"
+- setLocation:
+    latitude: -12.9570655
+    longitude: -38.3536886
+- tapOn: "INICIAR PERCURSO →"
+
+# Permissões de localização (primeiro plano e, se o sistema oferecer, "sempre")
+- runFlow:
+    when:
+      visible: "While using the app"
+    commands:
+      - tapOn: "While using the app"
+- runFlow:
+    when:
+      visible: "Allow all the time"
+    commands:
+      - tapOn: "Allow all the time"
+      - back
+
+- extendedWaitUntil:
+    visible: "Você está sendo monitorado"
+    timeout: 20000
+
+# Caminhada simulada pela orla (Farol de Itapuã → Praia do Corsário)
+- travel:
+    points:
+      - -12.9570655,-38.3536886
+      - -12.9600000,-38.3680000
+      - -12.9640000,-38.3850000
+    speed: 25
+- extendedWaitUntil:
+    visible:
+      text: "Percorrido: .*"
+    timeout: 30000
+- takeScreenshot: .maestro/screenshots/04-monitorando
+
+# Emergência
+- scrollUntilVisible:
+    element: "EMERGÊNCIA →"
+- tapOn: "EMERGÊNCIA →"
+- extendedWaitUntil:
+    visible: "Acionar EMERGÊNCIA?"
+    timeout: 5000
+- takeScreenshot: .maestro/screenshots/05-emergencia
+- tapOn: "Confirmar"
+
+# Finalizar
+- scrollUntilVisible:
+    element: "FINALIZAR PARTICIPAÇÃO →"
+- tapOn: "FINALIZAR PARTICIPAÇÃO →"
+- tapOn: "Finalizar"
+- extendedWaitUntil:
+    visible:
+      text: "Participação finalizada.*"
+    timeout: 20000
+- takeScreenshot: .maestro/screenshots/06-finalizado

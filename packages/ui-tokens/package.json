@@ -1,0 +1,6 @@
+{
+  "name": "@mb/ui-tokens",
+  "version": "0.1.0",
+  "private": true,
+  "main": "tokens.json"
+}

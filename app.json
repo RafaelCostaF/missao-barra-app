@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "f1f9e090-e263-40ea-b0db-48d52a133698"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.rafacsasuke.missaobarra",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+{
+  "name": "missao-barra",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "supabase/tests"
+  ],
+  "scripts": {
+    "test": "npm test -w @mb/core",
+    "test:db": "scripts/test-db.sh up && npm test -w @mb/db-tests",
+    "test:all": "npm test && npm run test:db && npm run typecheck",
+    "typecheck": "tsc -p packages/core --noEmit && npm run typecheck -w @mb/mobile && npm run typecheck -w @mb/admin",
+    "dev:admin": "npm run dev -w @mb/admin",
+    "dev:mobile": "npm start -w @mb/mobile",
+    "simulate": "tsx scripts/simulate.mts",
+    "stack:local": "scripts/test-db.sh up && tsx supabase/tests/serve-gateway.ts",
+    "test:realtime": "REALTIME=1 SUPABASE_ANON_KEY=$(npx supabase status -o json | node -pe 'JSON.parse(require(\"fs\").readFileSync(0)).ANON_KEY') npm test -w @mb/db-tests -- realtime",
+    "demo": "tsx scripts/demo.mts"
+  },
+  "devDependencies": {
+    "tsx": "^4.23.15",
+    "typescript": "~6.0.3",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
+  },
+  "overrides": {
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "dependencies": {
+    "expo-dev-client": "~58.0.15"
+  }
+}
