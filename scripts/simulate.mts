@@ -62,4 +62,6 @@ for (let r = 0; r < rounds; r++) {
   console.log(`rodada ${r + 1}/${rounds}: ${n - failed} ok, ${failed} falhas, ${Date.now() - t0} ms`);
   await new Promise((ok) => setTimeout(ok, Math.max(0, every - (Date.now() - t0))));
 }
+// Todos finalizam ao fim (gera avisos de "Finalizou" no painel).
+await Promise.allSettled(sims.map((s) => s.api.finish(session.id)));
 console.log('Fim. Para limpar: apague a sessão de teste no painel (cascata) e os usuários sim-*@sim.missaobarra.test.');

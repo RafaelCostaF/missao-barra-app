@@ -1,19 +1,19 @@
 # Missão Barra — agent context
 
-GPS monitoring app (official events + private friend races, same tracking flow), admin panel, cloud logs. Spec: `~/Downloads/especificacao_app_missao_barra_v2.pdf`. Brand: `packages/ui-tokens` (from `missao-barra-brand-kit.zip`). UI text pt-BR. Nothing committed yet (all untracked).
+GPS monitoring app (official events + private friend races, same tracking flow), admin panel, cloud logs. Spec: `~/Downloads/especificacao_app_missao_barra_v2.pdf`. Brand: `packages/ui-tokens` (from `missao-barra-brand-kit.zip`). UI text pt-BR. Repo: github.com/RafaelCostaF/missao-barra-app (main).
 
 ## Layout (npm workspaces)
 - `packages/core` — all logic, framework-free, injected deps: `signal.ts` (stale >2min), `geo.ts` (haversine, accuracy filter, `toFix`), `queue.ts` (persistent offline position queue, backoff), `tracking.ts` (tracker: consent→tracking→finished; auto-stops GPS on server "not tracking"), `logger.ts` (sanitizes secrets/coords, offline buffer → log-ingest), `notifications.ts` (`toNotice`), `api.ts` (supabase-js data layer), `report.ts` (summary, CSV, `SESSION_ACTIONS`).
 - `apps/mobile` — Expo SDK 58, expo-router (`src/app`), `src/lib/{services,location,bootstrap}.ts`. Single session screen `src/app/session/[id].tsx` for both kinds. Expo Go has no background GPS → `location.ts` falls back to `watchPositionAsync` + keep-awake. Android without `GOOGLE_MAPS_API_KEY` shows list instead of map (`LiveMap.tsx`).
-- `apps/admin` — Vite + React + Leaflet, hash routes: events CRUD/lifecycle, route editor, live map/alerts/summary, logs+CSV.
+- `apps/admin` — Vite + React + Leaflet, hash routes: events CRUD/lifecycle, route editor, live map/alerts/summary, logs+CSV. Global toasts (`components/Notifications.tsx`): emergency/help/signal lost/start/finish; Realtime has no `old` under RLS → `createStatusCache` (core) supplies previous status. Deploy: `scripts/deploy-admin.sh` (GitHub Pages, needs user OK: public surface).
 - `supabase/migrations/0001_schema.sql` — one `sessions` table (kind official|private). Rules in DB: RLS, `participants_guard` trigger (only self accepts/tracks, tracking needs live+accepted, position fields server-only), coords readable only via `live_participants` view, RPCs `push_positions`/`raise_alert` (emergency official-only), `flag_lost_signals`, `purge_old_data` (pg_cron).
 - `supabase/functions/log-ingest` — validation in `rows.ts` (pure, shared with tests).
 - `supabase/tests` — SQL/RLS, e2e (supabase-js via `gateway.ts`), load, log-ingest, `realtime.test.ts` (needs full stack).
-- `scripts/` — `test-db.sh` (podman pod: Postgres+GoTrue+PostgREST, ports 54329-54331), `demo.mts` (admin + live test event), `simulate.mts` (fake participants; is_test sessions only).
+- `scripts/` — `deploy-admin.sh`, `test-db.sh` (podman pod: Postgres+GoTrue+PostgREST, ports 54329-54331), `demo.mts` (admin + live test event), `simulate.mts` (fake participants, finish at end; is_test sessions only).
 
 ## Commands
 `npm test` (core) · `npm run test:db` · `npm run test:all` (+typecheck) · `npm run test:realtime` (full local stack) · `npm run test:e2e -w @mb/admin` (Playwright, needs demo data) · `npm run demo` / `npm run simulate -- --session <id>` (need SUPABASE_URL/ANON/SERVICE_ROLE env).
-Last state: all suites green (core 22, db 38, realtime 5 local+cloud, admin Playwright 4).
+Last state: all suites green (core 26, db 38, realtime 5 local+cloud, admin Playwright 5 incl. notifications vs cloud).
 
 ## Environments
 - Local full Supabase: `DOCKER_HOST=unix:///run/user/1000/podman/podman.sock npx supabase@2.121.0 start` (ports 553xx; user has another stack on 5432x — don't touch `*_top_reader`). Fedora SELinux: `chcon -Rt container_file_t supabase/functions`. Docker needs sudo; use podman.
@@ -24,5 +24,4 @@ Last state: all suites green (core 22, db 38, realtime 5 local+cloud, admin Play
 
 ## Pending
 - Background GPS / battery tests need paid Apple account + `eas build` (or Android dev build).
-- Admin panel only runs locally; optional free hosting (needs user login).
 - Field test per spec §7; Google Maps key for Android.

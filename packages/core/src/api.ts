@@ -104,6 +104,11 @@ export function createApi(db: SupabaseClient) {
     finish: async (sessionId: string) => updateMine(sessionId, { status: 'finished' }),
     pushPositions: async (sessionId: string, fixes: Fix[], distanceM: number) =>
       ok(await db.rpc('push_positions', { p_session: sessionId, p_fixes: fixes, p_distance_m: distanceM })),
+    /** Status atual de todos os participantes visíveis (base do cache de avisos do painel). */
+    participantStatuses: async () =>
+      ok(await db.from('participants').select('session_id, user_id, status')) as { session_id: string; user_id: string; status: string }[],
+    names: async (ids: string[]) =>
+      ok(await db.from('profiles').select('id, display_name').in('id', ids)) as { id: string; display_name: string }[],
     live: async (sessionId: string) =>
       ok(await db.from('live_participants').select('*').eq('session_id', sessionId)) as LiveParticipant[],
 

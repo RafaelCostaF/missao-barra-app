@@ -1,21 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getSignalState, SESSION_ACTIONS, SIGNAL_LABEL, summarize, toCsv, toNotice, type Alert, type Checkpoint, type LiveParticipant, type Session } from '@mb/core';
+import { getSignalState, SESSION_ACTIONS, SIGNAL_LABEL, summarize, toCsv, type Alert, type Checkpoint, type LiveParticipant, type Session } from '@mb/core';
 import { api, download, fmtTime, run, supabase } from '../lib';
 import { Map } from '../components/Map';
 import { RouteEditor } from '../components/RouteEditor';
 
 const ALERT_LABEL = { emergency: 'EMERGÊNCIA', help: 'Pedido de ajuda', signal_lost: 'Sinal perdido' };
-
-function beep() {
-  try {
-    const ctx = new AudioContext();
-    const o = ctx.createOscillator();
-    o.connect(ctx.destination);
-    o.frequency.value = 880;
-    o.start();
-    o.stop(ctx.currentTime + 0.6);
-  } catch { /* sem áudio */ }
-}
 
 export function EventDetail({ id }: { id: string }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -25,8 +14,6 @@ export function EventDetail({ id }: { id: string }) {
   const [tab, setTab] = useState<'live' | 'route'>('live');
   const [now, setNow] = useState(Date.now());
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const names = useRef(new globalThis.Map<string, string>());
-  names.current = new globalThis.Map(participants.map((p) => [p.user_id, p.display_name]));
 
   const reload = useCallback(async () => {
     const [s, p, a] = await Promise.all([api.session(id), api.live(id), api.alerts(id)]);
@@ -38,18 +25,12 @@ export function EventDetail({ id }: { id: string }) {
   useEffect(() => {
     void run('api.event', reload);
     void api.checkpoints(id).then(setCheckpoints);
-    const ch = api.subscribe(`admin:${id}`, ['participants', 'alerts'], (change) => {
-      const n = toNotice(change, '', (uid) => names.current.get(uid) ?? 'Participante');
-      if (n?.kind === 'alert') {
-        if (n.urgent) beep();
-        if (Notification.permission === 'granted') new Notification(n.title, { body: n.body });
-      }
+    const ch = api.subscribe(`admin:${id}`, ['participants', 'alerts'], () => {
       clearTimeout(timer.current);
       timer.current = setTimeout(() => void reload().catch(() => undefined), 800);
     }, `session_id=eq.${id}`);
     const tick = setInterval(() => setNow(Date.now()), 15_000);
     const poll = setInterval(() => void reload().catch(() => undefined), 30_000);
-    if (Notification.permission === 'default') void Notification.requestPermission();
     return () => {
       clearInterval(tick);
       clearInterval(poll);

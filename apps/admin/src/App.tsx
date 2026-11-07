@@ -5,6 +5,7 @@ import { Login } from './pages/Login';
 import { Events } from './pages/Events';
 import { EventDetail } from './pages/EventDetail';
 import { Logs } from './pages/Logs';
+import { Notifications } from './components/Notifications';
 
 /** Rotas por hash: #/eventos, #/evento/<id>, #/logs. Sem dependência de roteador. */
 function useHash() {
@@ -46,6 +47,7 @@ export function App() {
         <a href="#/logs">Logs</a>
         <button className="secondary" style={{ color: 'var(--white)', borderColor: 'var(--white)' }} onClick={() => api.signOut()}>Sair</button>
       </header>
+      <Notifications />
       <main>
         {page === 'evento' && id ? <EventDetail id={id} /> : page === 'logs' ? <Logs /> : <Events />}
       </main>
