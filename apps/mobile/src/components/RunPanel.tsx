@@ -112,7 +112,7 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
       )}
       <FadeIn>
         <View style={st.hero}>
-          <Text style={st.heroLabel}>{live.currentPaceS ? 'Pace atual' : 'Pace médio'}</Text>
+          <Text style={st.heroLabel}>{live.currentPaceS ? 'Pace atual' : heroPace ? 'Pace médio' : 'Pace'}</Text>
           <Text style={st.pace} accessibilityLabel={`Pace ${fmtPace(heroPace)} por quilômetro`}>{fmtPace(heroPace)}<Text style={st.paceUnit}> /km</Text></Text>
           <View style={st.grid}>
             <Metric dark label="Distância" value={km(me.distance_m)} unit="km" />
@@ -124,7 +124,8 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
             <Metric dark label="Em movimento" value={fmtClock(live.movingS || null)} />
             <Metric dark label="Pace em movimento" value={fmtPace(live.movingPaceS)} unit="/km" />
           </View>
-          {!live.currentPaceS && <Text style={st.heroSub}>O pace atual aparece após ~30 s em movimento.</Text>}
+          {!heroPace && <Text style={st.heroSub}>Você está parado: o pace aparece depois de ~30 s andando ou correndo.</Text>}
+          {!live.currentPaceS && heroPace != null && <Text style={st.heroSub}>Mostrando o pace médio; o pace atual aparece após ~30 s em movimento.</Text>}
         </View>
       </FadeIn>
 
