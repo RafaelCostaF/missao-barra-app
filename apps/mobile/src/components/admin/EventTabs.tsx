@@ -2,14 +2,14 @@ import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import {
-  analyzeCrowd, classifyPeople, fmtDuration, getSignalState, matchesPerson, pace, PERSON_FILTERS, reportKpis, SIGNAL_LABEL, summarize,
+  analyzeCrowd, classifyPeople, unanswered, fmtDuration, getSignalState, matchesPerson, pace, PERSON_FILTERS, reportKpis, SIGNAL_LABEL, summarize,
   type Alert, type Checkpoint, type Contact, type LiveParticipant, type ParticipantSummary, type Person, type PersonFilter,
 } from '@mb/core';
 import { Body, Input, Title } from '@/components/ui';
 import { LiveMap } from '@/components/LiveMap';
 import { act, Bar, Card, Chips, Kpis, ListItem, Pill, shareCsv, SmallButton } from './kit';
 import { ago, ALERT_LABEL, hhmm } from './labels';
-import { api } from '@/lib/services';
+import { api, supabase } from '@/lib/services';
 import { c, font, radius, signalColor } from '@/theme';
 
 type Live = { participants: LiveParticipant[]; checkpoints: Checkpoint[]; alerts: Alert[]; reload: () => Promise<void> };
@@ -136,10 +136,18 @@ export function EventPeople({ sessionId, participants, checkpoints, alerts, now,
     return () => clearInterval(t);
   }, [sessionId]);
   useEffect(() => void api.contacts(ids ? ids.split(',') : []).then(setContacts).catch(() => undefined), [ids]);
+  // Conversas de ajuda com mensagem sem resposta: sobem para o topo com 💬.
+  const [waiting, setWaiting] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    const load = () => void api.helpMessages(sessionId).then((m) => setWaiting(unanswered(m))).catch(() => undefined);
+    load();
+    const ch = api.subscribe(`help-list:${sessionId}`, ['help_messages'], load, `session_id=eq.${sessionId}`);
+    return () => void supabase.removeChannel(ch);
+  }, [sessionId]);
 
   const people = useMemo(() => classifyPeople(participants, report, alerts, checkpoints, contacts, now), [participants, report, alerts, checkpoints, contacts, now]);
   const counts = Object.fromEntries((Object.keys(PERSON_FILTERS) as PersonFilter[]).map((f) => [f, people.filter((p) => p.flags.has(f)).length])) as Record<PersonFilter, number>;
-  const shown = people.filter((p) => p.flags.has(filter) && matchesPerson(p, q)).sort((a, b) => rank(a) - rank(b) || a.display_name.localeCompare(b.display_name));
+  const shown = people.filter((p) => p.flags.has(filter) && matchesPerson(p, q)).sort((a, b) => Number(!!waiting.get(b.user_id)) - Number(!!waiting.get(a.user_id)) || rank(a) - rank(b) || a.display_name.localeCompare(b.display_name));
 
   return (
     <FlatList
@@ -165,7 +173,7 @@ export function EventPeople({ sessionId, participants, checkpoints, alerts, now,
       renderItem={({ item: p }) => {
         const s = getSignalState(p as never, now);
         const tags = [
-          p.flags.has('open_call') && 'Chamado aberto', p.flags.has('off_route') && 'Fora do percurso', p.flags.has('behind') && 'Retardatário',
+          waiting.get(p.user_id) && `💬 ${waiting.get(p.user_id)} mensagem(ns) sem resposta`, p.flags.has('open_call') && 'Chamado aberto', p.flags.has('off_route') && 'Fora do percurso', p.flags.has('behind') && 'Retardatário',
           p.flags.has('low_battery') && `Bateria ${p.battery}%`, p.flags.has('not_completed') && 'Não concluiu',
         ].filter(Boolean).join(' · ');
         return (

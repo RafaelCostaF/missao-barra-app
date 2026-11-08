@@ -7,6 +7,7 @@ import {
   type Alert, type Contact, type LiveParticipant, type ParticipantSummary,
 } from '@mb/core';
 import { Body, Screen, SignalBadge, Title } from '@/components/ui';
+import { HelpChat } from '@/components/HelpChat';
 import { act, Card, confirm, open, SmallButton } from '@/components/admin/kit';
 import { ago, ALERT_LABEL, EVENT_LABEL, hhmm } from '@/components/admin/labels';
 import { useNow } from '@/hooks/useNow';
@@ -23,6 +24,8 @@ export default function Participant() {
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [report, setReport] = useState<ParticipantSummary | undefined>();
   const [events, setEvents] = useState<{ event: string; actor: string | null; at: string }[]>([]);
+  const [me, setMe] = useState('');
+  useEffect(() => void api.me().then(setMe), []);
 
   const load = useCallback(async () => {
     const [live, al, rep, tl] = await Promise.all([api.live(sessionId), api.alerts(sessionId), api.report(sessionId).catch(() => []), api.timeline(sessionId, user)]);
@@ -72,6 +75,10 @@ export default function Participant() {
             </View>
           </Card>
         ))}
+
+        <Card title="Conversa de ajuda">
+          {me ? <HelpChat sessionId={sessionId} userId={user} me={me} asOrg compact /> : null}
+        </Card>
 
         <Card title="Contato">
           {contact?.phone ? (

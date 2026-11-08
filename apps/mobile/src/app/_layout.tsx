@@ -44,6 +44,7 @@ export default function RootLayout() {
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="session/[id]" options={{ title: 'Percurso' }} />
       <Stack.Screen name="race/new" options={{ title: 'Nova corrida' }} />
+      <Stack.Screen name="help/[id]" options={{ title: 'Ajuda da organização', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="cadastro" options={{ title: 'Cadastro', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="admin/event-new" options={{ title: 'Novo evento', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="admin/event/[id]" options={{ title: 'Evento', headerBackTitle: 'Voltar' }} />

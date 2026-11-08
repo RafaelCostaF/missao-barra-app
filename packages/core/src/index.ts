@@ -15,3 +15,4 @@ export * from './validation';
 export * from './directory';
 export * from './strava';
 export * from './run';
+export * from './help';

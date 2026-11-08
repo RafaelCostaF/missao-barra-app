@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
-  classifyPeople, formatPhoneBR, getSignalState, LOW_BATTERY, mapsLink, matchesPerson, PERSON_FILTERS, SIGNAL_LABEL, telLink, toCsv, whatsappLink,
+  classifyPeople, formatPhoneBR, unanswered, getSignalState, LOW_BATTERY, mapsLink, matchesPerson, PERSON_FILTERS, SIGNAL_LABEL, telLink, toCsv, whatsappLink,
   type Alert, type Checkpoint, type Contact, type LiveParticipant, type ParticipantSummary, type Person, type PersonFilter,
 } from '@mb/core';
-import { api, download, fmtTime, runOk } from '../lib';
+import { api, download, fmtTime, runOk, supabase } from '../lib';
 import { Modal } from './Modal';
 import { confirmDialog, toast } from './Feedback';
 import { Timeline } from './Timeline';
+import { HelpChat } from './HelpChat';
 
 const ago = (iso: string | null, now: number) => {
   if (!iso) return '—';
@@ -25,6 +26,14 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
 }) {
   const [report, setReport] = useState<ParticipantSummary[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  // Conversas de ajuda com mensagem do participante ainda sem resposta.
+  const [waiting, setWaiting] = useState<Map<string, number>>(new Map());
+  useEffect(() => {
+    const load = () => api.helpMessages(sessionId).then((m) => setWaiting(unanswered(m))).catch(() => undefined);
+    void load();
+    const ch = api.subscribe(`help-list:${sessionId}`, ['help_messages'], () => void load(), `session_id=eq.${sessionId}`);
+    return () => void supabase.removeChannel(ch);
+  }, [sessionId]);
   const urlFilter = extra?.startsWith('f-') ? (extra.slice(2) as PersonFilter) : null;
   const [filter, setFilter] = useState<PersonFilter>(urlFilter && urlFilter in PERSON_FILTERS ? urlFilter : 'all');
   useEffect(() => { if (urlFilter && urlFilter in PERSON_FILTERS) setFilter(urlFilter); }, [urlFilter]);
@@ -44,7 +53,7 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
 
   const people = useMemo(() => classifyPeople(participants, report, alerts, checkpoints, contacts, now), [participants, report, alerts, checkpoints, contacts, now]);
   const counts = Object.fromEntries((Object.keys(PERSON_FILTERS) as PersonFilter[]).map((f) => [f, people.filter((p) => p.flags.has(f)).length]));
-  const shown = people.filter((p) => p.flags.has(filter) && matchesPerson(p, q)).sort((a, b) => rank(a) - rank(b) || a.display_name.localeCompare(b.display_name));
+  const shown = people.filter((p) => p.flags.has(filter) && matchesPerson(p, q)).sort((a, b) => Number(!!waiting.get(b.user_id)) - Number(!!waiting.get(a.user_id)) || rank(a) - rank(b) || a.display_name.localeCompare(b.display_name));
   const person = people.find((p) => p.user_id === selected);
 
   return (
@@ -77,6 +86,7 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
                   <td className="flags">
                     <span className={`badge ${s}`}>{SIGNAL_LABEL[s]}</span>
                     {p.flags.has('open_call') && <span className="badge alert-emergency">Chamado</span>}
+                    {waiting.get(p.user_id) ? <span className="badge chat-badge" title="Mensagem de ajuda sem resposta">💬 {waiting.get(p.user_id)}</span> : null}
                     {p.flags.has('off_route') && <span className="badge alert-help">Fora do percurso</span>}
                     {p.flags.has('behind') && <span className="badge alert-help">Retardatário</span>}
                     {p.flags.has('low_battery') && <span className="badge alert-help">Bateria {p.battery}%</span>}
@@ -110,6 +120,8 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
   const s = getSignalState(p as never, now);
   const c = p.contact;
   const [photo, setPhoto] = useState<string | null>(null);
+  const [me, setMe] = useState('');
+  useEffect(() => void api.me().then(setMe), []);
   useEffect(() => {
     if (c?.photo_path) void api.photoUrl(c.photo_path).then(setPhoto).catch(() => setPhoto(null));
   }, [c?.photo_path]);
@@ -163,6 +175,9 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
             </div>
           </section>
         </div>
+
+        <h3 style={{ marginTop: 16 }}>Conversa de ajuda</h3>
+        <HelpChat sessionId={sessionId} userId={p.user_id} me={me} />
 
         <h3 style={{ marginTop: 16 }}>Linha do tempo</h3>
         <Timeline sessionId={sessionId} userId={p.user_id} passages={report?.passages ?? []} alerts={alerts} />

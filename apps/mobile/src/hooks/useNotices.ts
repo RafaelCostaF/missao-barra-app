@@ -13,7 +13,7 @@ export function useNotices(userId: string | null) {
     if (!userId) return;
     void Notifications.requestPermissionsAsync();
     const names = new Map<string, string>();
-    const ch = api.subscribe(`notices:${userId}`, ['friendships', 'participants', 'alerts'], async (change) => {
+    const ch = api.subscribe(`notices:${userId}`, ['friendships', 'participants', 'alerts', 'help_messages'], async (change) => {
       const ids = [change.new.requester, change.new.addressee, change.new.user_id].filter(Boolean);
       const missing = ids.filter((i) => !names.has(i));
       if (missing.length) {

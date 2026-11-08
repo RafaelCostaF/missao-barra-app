@@ -30,6 +30,8 @@ export interface Alert {
   resolved_at: string | null;
 }
 
+export interface HelpMessage { id: number; user_id: string; sender_id: string | null; body: string; created_at: string }
+
 export interface LogFilters {
   from?: string;
   to?: string;
@@ -143,6 +145,17 @@ export function createApi(db: SupabaseClient) {
       ok(await db.from('alerts').select('*, sessions(name), profiles!alerts_user_id_fkey(display_name)').is('resolved_at', null).order('created_at', { ascending: false })) as
         (Alert & { sessions: { name: string } | null; profiles: { display_name: string } | null })[],
     resolveAlert: async (id: string) => ok(await db.from('alerts').update({ resolved_at: new Date().toISOString() }).eq('id', id)),
+
+    // ---------- ajuda por conversa (participante ↔ organização) ----------
+    /** Conversa de ajuda de um participante num evento (o próprio, ou qualquer um para a organização). */
+    helpThread: async (sessionId: string, userId: string) =>
+      ok(await db.from('help_messages').select('id, user_id, sender_id, body, created_at').eq('session_id', sessionId).eq('user_id', userId).order('id')) as HelpMessage[],
+    /** Todas as conversas do evento (organização): base para "mensagens novas". */
+    helpMessages: async (sessionId: string) =>
+      ok(await db.from('help_messages').select('id, user_id, sender_id, body, created_at').eq('session_id', sessionId).order('id')) as HelpMessage[],
+    /** Envia; a 1ª mensagem do participante abre o pedido de ajuda (servidor). */
+    sendHelp: async (sessionId: string, userId: string, body: string) =>
+      ok(await db.rpc('send_help_message', { p_session: sessionId, p_user: userId, p_body: body })) as number,
 
     // ---------- relatório e auditoria ----------
     report: async (sessionId: string) => ok(await db.rpc('session_report', { p_session: sessionId })) as ParticipantSummary[],

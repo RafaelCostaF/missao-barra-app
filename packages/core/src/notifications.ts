@@ -1,7 +1,7 @@
 import type { AlertType } from './types';
 
 export interface Notice {
-  kind: 'friend_request' | 'friend_accepted' | 'invite' | 'alert' | 'participation';
+  kind: 'friend_request' | 'friend_accepted' | 'invite' | 'alert' | 'participation' | 'help_message';
   title: string;
   body: string;
   urgent?: boolean;
@@ -9,7 +9,7 @@ export interface Notice {
 
 /** Evento do Supabase Realtime (postgres_changes). */
 export interface Change {
-  table: 'friendships' | 'participants' | 'alerts';
+  table: 'friendships' | 'participants' | 'alerts' | 'help_messages';
   eventType: 'INSERT' | 'UPDATE' | 'DELETE';
   new: Record<string, any>;
   old: Record<string, any>;
@@ -38,6 +38,12 @@ export function toNotice(c: Change, me: string, nameOf: (userId: string) => stri
   if (opts.participation && c.table === 'participants' && c.eventType === 'UPDATE' && n.user_id !== me && n.status !== c.old.status) {
     if (n.status === 'tracking') return { kind: 'participation', title: 'Iniciou o percurso', body: `${nameOf(n.user_id)} começou a ser monitorado.` };
     if (n.status === 'finished') return { kind: 'participation', title: 'Finalizou', body: `${nameOf(n.user_id)} finalizou a participação.` };
+  }
+  // Conversa de ajuda: participante recebe a resposta da organização; organização recebe o que o participante escreveu.
+  if (c.table === 'help_messages' && c.eventType === 'INSERT' && n.sender_id !== me) {
+    const preview = String(n.body).slice(0, 120);
+    if (n.user_id === me) return { kind: 'help_message', title: 'Organização respondeu', body: preview };
+    if (n.sender_id === n.user_id) return { kind: 'help_message', title: `${nameOf(n.user_id)} (ajuda)`, body: preview };
   }
   if (c.table === 'alerts' && c.eventType === 'INSERT' && n.user_id !== me) {
     const [title, verb] = ALERT_TEXT[n.type as AlertType];

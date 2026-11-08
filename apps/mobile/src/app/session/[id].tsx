@@ -192,7 +192,12 @@ export default function SessionScreen() {
                 <HoldButton label="Emergência" hint="Segure 1 s para acionar" onHold={raiseEmergency} onTap={() => setHoldHint(true)} />
               </View>
             )}
-            <BarButton icon="hand-left-outline" label="Ajuda" onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); confirmAlert('help'); }} />
+            {/* Evento oficial: ajuda vira conversa com a organização. Corrida entre amigos: avisa os amigos. */}
+            <BarButton icon={official ? 'chatbubbles-outline' : 'hand-left-outline'} label="Ajuda" onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (official) router.push(`/help/${id}`);
+              else confirmAlert('help');
+            }} />
             <BarButton icon="stop-circle-outline" label="Finalizar" busy={busy} onPress={finish} />
           </View>
           {holdHint && official && <Text style={st.holdHint}>Segure o botão por 1 segundo para acionar a emergência.</Text>}
