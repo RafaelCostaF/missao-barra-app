@@ -185,14 +185,17 @@ export default function SessionScreen() {
       {/* Sempre à mão, sem rolar: emergência, ajuda e finalizar. */}
       {tracking && (
         <View style={st.actionBar}>
-          {official && (
-            <HoldButton label="Emergência" hint="Segure 1 s para acionar" onHold={raiseEmergency} onTap={() => setHoldHint(true)} />
-          )}
-          {holdHint && official && <Text style={st.holdHint}>Segure o botão por 1 segundo para acionar a emergência.</Text>}
+          {/* Lado a lado: ocupa uma faixa só. Emergência maior e vermelha, dispara segurando 1 s. */}
           <View style={{ flexDirection: 'row', gap: 8 }}>
-            <View style={{ flex: 1 }}><Button icon="hand-left-outline" variant="secondary" haptic="light" label="Ajuda" onPress={() => confirmAlert('help')} /></View>
-            <View style={{ flex: 1 }}><Button icon="stop-circle-outline" variant="secondary" label="Finalizar" busy={busy} onPress={finish} /></View>
+            {official && (
+              <View style={{ flex: 1.4 }}>
+                <HoldButton label="Emergência" hint="Segure 1 s para acionar" onHold={raiseEmergency} onTap={() => setHoldHint(true)} />
+              </View>
+            )}
+            <BarButton icon="hand-left-outline" label="Ajuda" onPress={() => { void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); confirmAlert('help'); }} />
+            <BarButton icon="stop-circle-outline" label="Finalizar" busy={busy} onPress={finish} />
           </View>
+          {holdHint && official && <Text style={st.holdHint}>Segure o botão por 1 segundo para acionar a emergência.</Text>}
         </View>
       )}
     </Screen>
@@ -208,6 +211,17 @@ function Notice({ icon, text, tone }: { icon: keyof typeof Ionicons.glyphMap; te
         <View style={{ flex: 1 }}><Body small>{text}</Body></View>
       </View>
     </FadeIn>
+  );
+}
+
+/** Botão compacto da barra de ações (ícone em cima, texto embaixo). */
+function BarButton({ icon, label, onPress, busy }: { icon: keyof typeof Ionicons.glyphMap; label: string; onPress: () => void; busy?: boolean }) {
+  return (
+    <Pressable onPress={onPress} disabled={busy} accessibilityRole="button" accessibilityLabel={label}
+      style={({ pressed }) => [st.barBtn, pressed && { opacity: 0.8 }]}>
+      <Ionicons name={icon} size={20} color={c.charcoal} />
+      <Text style={st.barText} numberOfLines={1}>{busy ? '…' : label.toUpperCase()}</Text>
+    </Pressable>
   );
 }
 
@@ -232,8 +246,8 @@ function HoldButton({ label, hint, onHold, onTap }: { label: string; hint: strin
       style={st.hold}>
       <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#8E1A13', width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
       <Ionicons name="warning" size={20} color={c.white} />
-      <Text style={st.holdText}>{label.toUpperCase()}</Text>
-      <Text style={st.holdSub}>segure</Text>
+      <Text style={st.holdText} numberOfLines={1} adjustsFontSizeToFit>{label.toUpperCase()}</Text>
+      <Text style={st.holdSub}>segure 1 s</Text>
     </Pressable>
   );
 }
@@ -243,9 +257,11 @@ const st = StyleSheet.create({
   mapToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.surface },
   mapToggleText: { fontFamily: font.bold, fontSize: 13, color: c.charcoal, textTransform: 'uppercase', letterSpacing: 0.6 },
   actionBar: { gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.white },
-  hold: { minHeight: 56, borderRadius: radius, backgroundColor: c.danger, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, ...shadow },
-  holdText: { fontFamily: font.bold, fontSize: 16, color: c.white, letterSpacing: 1.2 },
-  holdSub: { fontFamily: font.body, fontSize: 12, color: '#FFD9D4' },
+  hold: { height: 64, borderRadius: radius, backgroundColor: c.danger, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, ...shadow },
+  holdText: { fontFamily: font.bold, fontSize: 13, color: c.white, letterSpacing: 0.8 },
+  holdSub: { fontFamily: font.body, fontSize: 10.5, color: '#FFD9D4' },
+  barBtn: { flex: 1, height: 64, borderRadius: radius, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.surface, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  barText: { fontFamily: font.bold, fontSize: 12, color: c.charcoal, letterSpacing: 0.6 },
   holdHint: { fontFamily: font.bold, fontSize: 12.5, color: c.danger, textAlign: 'center' },
   map: { height: 280, borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: c.line },
   card: { backgroundColor: c.surface, borderRadius: radius, padding: 16, gap: 12, borderWidth: 1, borderColor: c.line, ...shadow },
