@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   fmtDuration, formatPhoneBR, getSignalState, LOW_BATTERY, mapsLink, SIGNAL_LABEL, telLink, whatsappLink,
@@ -93,7 +93,8 @@ export default function Participant() {
           <Body small>{(p.distance_m / 1000).toFixed(1)} km · {report?.passages.length ?? 0} ponto(s) de apoio</Body>
           <Body small>Bateria: <Text style={p.battery != null && p.battery <= LOW_BATTERY ? { color: c.danger, fontFamily: font.bold } : undefined}>{p.battery != null ? `${p.battery}%` : 'sem informação'}</Text></Body>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
-            {p.last_lat != null && <SmallButton icon="navigate-outline" label="Abrir no mapa" onPress={() => open(mapsLink(p.last_lat!, p.last_lng!))} />}
+            {p.last_lat != null && <SmallButton icon="map-outline" label="Ver no mapa do evento" tone="primary" onPress={() => router.push(`/admin/event/${sessionId}?tab=monitor&focus=${user}`)} />}
+            {p.last_lat != null && <SmallButton icon="navigate-outline" label="Google Maps" onPress={() => open(mapsLink(p.last_lat!, p.last_lng!))} />}
             {p.status === 'tracking' && (
               <SmallButton icon="stop-circle-outline" label="Finalizar participação" tone="danger" onPress={() => confirm(
                 `Finalizar a participação de ${p.display_name}?`, 'Use em desistência ou quando a pessoa avisar que encerrou.', 'Finalizar',

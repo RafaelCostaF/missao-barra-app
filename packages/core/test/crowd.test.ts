@@ -13,7 +13,9 @@ const p = (id: string, km: number, opts: Partial<LiveParticipant> = {}): LivePar
 describe('analyzeCrowd', () => {
   it('maioria por trecho', () => {
     const r = analyzeCrowd([p('a', 2), p('b', 3), p('c', 4), p('d', 12)], cps, now);
-    expect(r.segments).toEqual([{ label: 'A → B', count: 3 }, { label: 'B → C', count: 1 }]);
+    expect(r.segments.map(({ label, count }) => ({ label, count }))).toEqual([{ label: 'A → B', count: 3 }, { label: 'B → C', count: 1 }]);
+    expect(r.segments[0].user_ids).toEqual(['c', 'b', 'a']); // mais à frente primeiro
+    expect(r.segments[1].user_ids).toEqual(['d']);
     expect(r.majority).toEqual({ label: 'A → B', share: 0.75 });
   });
 
@@ -27,6 +29,13 @@ describe('analyzeCrowd', () => {
     const by = Object.fromEntries(r.attention.map((a) => [a.user_id, a.reason]));
     expect(by).toEqual({ mudo: 'stale', perdido: 'off_route', lento: 'behind' });
     expect(r.attention.find((a) => a.user_id === 'mudo')?.detail).toBe('10 min sem sinal');
+  });
+
+  it('outliers: lista completa (o cartão Atenção mostra só 5)', () => {
+    const lost = Array.from({ length: 8 }, (_, i) => p(`perdido${i}`, 5 + i, { last_lat: -13.01 }));
+    const r = analyzeCrowd(lost, cps, now);
+    expect(r.attention).toHaveLength(5);
+    expect(r.outliers.filter((o) => o.reason === 'off_route')).toHaveLength(8);
   });
 
   it('ignora finalizados e quem não compartilha; sem percurso, sem distribuição', () => {

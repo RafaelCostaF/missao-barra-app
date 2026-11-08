@@ -22,8 +22,10 @@ export const PERSON_FILTERS = {
   stale: 'Sem sinal',
   open_call: 'Chamado aberto',
   off_route: 'Fora do percurso',
+  behind: 'Retardatário',
   not_completed: 'Não concluiu',
   completed: 'Concluiu',
+  finished: 'Finalizou',
   not_started: 'Não iniciou',
   low_battery: 'Bateria baixa',
 } as const;
@@ -47,7 +49,9 @@ export function classifyPeople(
   checkpoints: Checkpoint[], contacts: Contact[] = [], now = Date.now(),
 ): Person[] {
   const last = [...checkpoints].sort((a, b) => b.km - a.km)[0];
-  const offRoute = new Set(analyzeCrowd(live, checkpoints, now).attention.filter((a) => a.reason === 'off_route').map((a) => a.user_id));
+  const { outliers } = analyzeCrowd(live, checkpoints, now);
+  const offRoute = new Set(outliers.filter((a) => a.reason === 'off_route').map((a) => a.user_id));
+  const behind = new Set(outliers.filter((a) => a.reason === 'behind').map((a) => a.user_id));
   const openCall = new Set(alerts.filter((a) => !a.resolved_at).map((a) => a.user_id));
   const byUser = new Map(report.map((r) => [r.user_id, r]));
   const contactOf = new Map(contacts.map((c) => [c.user_id, c]));
@@ -63,6 +67,8 @@ export function classifyPeople(
     if (openCall.has(p.user_id)) flags.add('open_call');
     if (p.status === 'tracking' && p.battery != null && p.battery <= LOW_BATTERY) flags.add('low_battery');
     if (offRoute.has(p.user_id)) flags.add('off_route');
+    if (behind.has(p.user_id)) flags.add('behind');
+    if (p.status === 'finished') flags.add('finished');
     if (completed) flags.add('completed');
     else if (p.status === 'finished') flags.add('not_completed');
     return { ...p, flags, passed: passages.length, contact: contactOf.get(p.user_id) };

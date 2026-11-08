@@ -54,3 +54,11 @@ describe('classifyPeople', () => {
     expect(mapsLink(-13, -38.5)).toContain('query=-13,-38.5');
   });
 });
+
+describe('retardatário vira filtro', () => {
+  it('quem está bem atrás do grupo ganha a marca behind', () => {
+    const group = [12, 12.5, 13, 13.5, 14].map((k, i) => live(`g${i}`, { last_lng: -38.3 - k * KM }));
+    const people = classifyPeople([...group, live('lento', { last_lng: -38.3 - 3 * KM })], [], [], cps, [], now);
+    expect(people.filter((x) => x.flags.has('behind')).map((x) => x.user_id)).toEqual(['lento']);
+  });
+});

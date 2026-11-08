@@ -9,9 +9,13 @@ const MAX_ATTENTION = 5;
 export interface Attention { user_id: string; name: string; reason: 'stale' | 'off_route' | 'behind'; detail: string }
 export interface CrowdAnalysis {
   positioned: number;
-  segments: { label: string; count: number }[];
+  /** Trechos entre pontos de apoio, com quem está em cada um (clicável no painel). */
+  segments: { label: string; count: number; user_ids: string[] }[];
   majority: { label: string; share: number } | null;
+  /** Os mais urgentes (cartão "Atenção"). */
   attention: Attention[];
+  /** Todos os fora do padrão, sem limite (filtros e destaque no mapa). */
+  outliers: Attention[];
 }
 
 // Projeção local em metros (equiretangular): suficiente para distâncias de poucos km.
@@ -47,11 +51,14 @@ export function analyzeCrowd(participants: LiveParticipant[], checkpoints: Check
       attention.push({ user_id: p.user_id, name: p.display_name, reason: 'stale', detail: mins(now - Date.parse(p.last_at!)) });
 
   const positioned = active.filter((p) => p.last_lat != null && p.last_lng != null);
-  if (route.length < 2) return { positioned: positioned.length, segments: [], majority: null, attention: attention.slice(0, MAX_ATTENTION) };
+  if (route.length < 2) return { positioned: positioned.length, segments: [], majority: null, attention: attention.slice(0, MAX_ATTENTION), outliers: attention };
 
   const lat0 = route[0].lat;
   const located = positioned.map((p) => ({ p, ...locate({ lat: p.last_lat!, lng: p.last_lng! }, route, lat0) }));
-  const segments = route.slice(0, -1).map((c, i) => ({ label: `${c.name} → ${route[i + 1].name}`, count: located.filter((l) => l.seg === i).length }));
+  const segments = route.slice(0, -1).map((c, i) => {
+    const here = located.filter((l) => l.seg === i).sort((a, b) => b.along - a.along); // quem vai mais à frente primeiro
+    return { label: `${c.name} → ${route[i + 1].name}`, count: here.length, user_ids: here.map((l) => l.p.user_id) };
+  });
   const top = segments.reduce((m, s) => (s.count > m.count ? s : m), segments[0]);
   const majority = located.length ? { label: top.label, share: top.count / located.length } : null;
 
@@ -68,10 +75,6 @@ export function analyzeCrowd(participants: LiveParticipant[], checkpoints: Check
   }
 
   const seen = new Set<string>();
-  return {
-    positioned: located.length,
-    segments,
-    majority,
-    attention: attention.filter((a) => !seen.has(a.user_id) && seen.add(a.user_id)).slice(0, MAX_ATTENTION),
-  };
+  const unique = attention.filter((a) => !seen.has(a.user_id) && seen.add(a.user_id));
+  return { positioned: located.length, segments, majority, attention: unique.slice(0, MAX_ATTENTION), outliers: attention };
 }

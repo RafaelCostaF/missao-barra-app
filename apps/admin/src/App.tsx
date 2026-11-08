@@ -23,7 +23,7 @@ function useHash() {
 export function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [page, id, sub] = useHash();
+  const [page, id, sub, extra] = useHash();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuth(data.session));
@@ -53,7 +53,7 @@ export function App() {
         <button className="secondary" style={{ color: 'var(--white)', borderColor: 'var(--white)' }} onClick={() => api.signOut()}>Sair</button>
       </header>
       <main>
-        {page === 'evento' && id ? <EventDetail key={id} id={id} tab={sub} /> : page === 'logs' ? <Logs /> : page === 'equipe' ? <Staff /> : page === 'pessoas' ? <People /> : <Events />}
+        {page === 'evento' && id ? <EventDetail key={id} id={id} tab={sub} extra={extra} /> : page === 'logs' ? <Logs /> : page === 'equipe' ? <Staff /> : page === 'pessoas' ? <People /> : <Events />}
       </main>
     </>
   );

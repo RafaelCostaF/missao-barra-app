@@ -29,8 +29,15 @@ export function reportKpis(rows: ParticipantSummary[], alerts: Pick<Alert, 'type
     peopleWithCalls: rows.filter((r) => r.alerts_help + r.alerts_emergency > 0).length,
     medianResolutionS: median(resolved),
     funnel: [...checkpoints].sort((a, b) => a.km - b.km).map((c) => {
-      const times = rows.flatMap((r) => r.passages.filter((p) => p.name === c.name).map((p) => p.elapsed_s));
-      return { name: c.name, km: c.km, reached: times.length, medianElapsedS: median(times) };
+      const hits = rows.flatMap((r) => r.passages.filter((p) => p.name === c.name).map((p) => ({ user_id: r.user_id, elapsed_s: p.elapsed_s })));
+      const times = hits.map((h) => h.elapsed_s);
+      const reachedIds = new Set(hits.map((h) => h.user_id));
+      return {
+        name: c.name, km: c.km, reached: times.length, medianElapsedS: median(times),
+        /** Quem passou (mais rápido primeiro) e quem ainda não — clicável no relatório. */
+        reachedBy: hits.sort((a, b) => a.elapsed_s - b.elapsed_s),
+        missing: rows.filter((r) => !reachedIds.has(r.user_id)).map((r) => r.user_id),
+      };
     }),
   };
 }

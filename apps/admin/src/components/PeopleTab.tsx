@@ -13,18 +13,24 @@ const ago = (iso: string | null, now: number) => {
   return min < 1 ? 'agora' : min < 60 ? `há ${min} min` : `há ${Math.floor(min / 60)}h${String(min % 60).padStart(2, '0')}`;
 };
 // Ordem de prioridade para quem precisa de contato aparecer primeiro.
-const PRIORITY: PersonFilter[] = ['open_call', 'stale', 'off_route', 'low_battery', 'not_completed', 'not_started', 'tracking', 'completed'];
+const PRIORITY: PersonFilter[] = ['open_call', 'stale', 'off_route', 'behind', 'low_battery', 'not_completed', 'not_started', 'tracking', 'completed'];
 const rank = (p: Person) => { const i = PRIORITY.findIndex((f) => p.flags.has(f)); return i < 0 ? 99 : i; };
 
 /** Rastreio um a um: filtros por situação, busca e perfil com contato. */
-export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, onChanged }: {
+export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, onChanged, extra }: {
   sessionId: string; participants: LiveParticipant[]; alerts: Alert[]; checkpoints: Checkpoint[]; now: number; onChanged: () => void;
+  /** Da URL: `f-<filtro>` abre já filtrado; outro valor = pessoa com perfil aberto. */
+  extra?: string;
 }) {
   const [report, setReport] = useState<ParticipantSummary[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
-  const [filter, setFilter] = useState<PersonFilter>('all');
+  const urlFilter = extra?.startsWith('f-') ? (extra.slice(2) as PersonFilter) : null;
+  const [filter, setFilter] = useState<PersonFilter>(urlFilter && urlFilter in PERSON_FILTERS ? urlFilter : 'all');
+  useEffect(() => { if (urlFilter && urlFilter in PERSON_FILTERS) setFilter(urlFilter); }, [urlFilter]);
   const [q, setQ] = useState('');
-  const [selected, setSelected] = useState<string | null>(null);
+  // Perfil aberto fica na URL: dá para compartilhar o link e voltar com o botão do navegador.
+  const selected = extra && !extra.startsWith('f-') ? extra : null;
+  const setSelected = (uid: string | null) => { location.hash = `#/evento/${sessionId}/participantes${uid ? `/${uid}` : ''}`; };
   const ids = participants.map((p) => p.user_id).sort().join(',');
 
   useEffect(() => {
@@ -52,14 +58,14 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
       </div>
       <div className="chips">
         {(Object.keys(PERSON_FILTERS) as PersonFilter[]).map((f) => (
-          <button key={f} className={`chip ${filter === f ? 'active' : ''} ${['open_call', 'stale', 'off_route', 'low_battery'].includes(f) && counts[f] ? 'hot' : ''}`} onClick={() => setFilter(f)}>
+          <button key={f} className={`chip ${filter === f ? 'active' : ''} ${['open_call', 'stale', 'off_route', 'behind', 'low_battery'].includes(f) && counts[f] ? 'hot' : ''}`} onClick={() => setFilter(f)}>
             {PERSON_FILTERS[f]} <b>{counts[f]}</b>
           </button>
         ))}
       </div>
       <div className="card scroll">
         <table>
-          <thead><tr><th>Nome</th><th className="hide-sm">Inscrição</th><th>Situação</th><th>Última posição</th><th className="hide-sm">Bateria</th><th className="hide-sm">km</th><th className="hide-sm">Pontos</th><th>Contato</th></tr></thead>
+          <thead><tr><th>Nome</th><th className="hide-sm">Inscrição</th><th>Situação</th><th>Última posição</th><th className="hide-sm">Bateria</th><th className="hide-sm">km</th><th className="hide-sm">Pontos</th><th>Contato</th><th></th></tr></thead>
           <tbody>
             {shown.map((p) => {
               const s = getSignalState(p as never, now);
@@ -71,6 +77,7 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
                     <span className={`badge ${s}`}>{SIGNAL_LABEL[s]}</span>
                     {p.flags.has('open_call') && <span className="badge alert-emergency">Chamado</span>}
                     {p.flags.has('off_route') && <span className="badge alert-help">Fora do percurso</span>}
+                    {p.flags.has('behind') && <span className="badge alert-help">Retardatário</span>}
                     {p.flags.has('low_battery') && <span className="badge alert-help">Bateria {p.battery}%</span>}
                     {p.flags.has('not_completed') && <span className="badge not_started">Não concluiu</span>}
                   </td>
@@ -80,6 +87,9 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
                   <td className="hide-sm">{p.passed}/{checkpoints.length}</td>
                   <td onClick={(e) => e.stopPropagation()}>
                     {p.contact?.phone ? <a className="icon-link" href={whatsappLink(p.contact.phone)} target="_blank" rel="noopener noreferrer" title="WhatsApp">WhatsApp</a> : <span className="muted">sem celular</span>}
+                  </td>
+                  <td onClick={(e) => e.stopPropagation()}>
+                    {p.last_lat != null && <a className="icon-link map-link" href={`#/evento/${sessionId}/monitor/${p.user_id}`} title="Mostrar no mapa">Mapa</a>}
                   </td>
                 </tr>
               );
@@ -146,7 +156,8 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
             <p>{(p.distance_m / 1000).toFixed(1)} km · {p.passed} ponto(s) de apoio</p>
             <p>Bateria: <b className={p.battery != null && p.battery <= LOW_BATTERY ? 'low' : ''}>{p.battery != null ? `${p.battery}%` : 'sem informação'}</b></p>
             <div className="row">
-              {p.last_lat != null && <a className="btn secondary" href={mapsLink(p.last_lat, p.last_lng!)} target="_blank" rel="noopener noreferrer">Abrir posição no mapa</a>}
+              {p.last_lat != null && <a className="btn" href={`#/evento/${sessionId}/monitor/${p.user_id}`}>Ver no mapa do evento</a>}
+              {p.last_lat != null && <a className="btn secondary" href={mapsLink(p.last_lat, p.last_lng!)} target="_blank" rel="noopener noreferrer">Google Maps</a>}
               {p.status === 'tracking' && <button className="secondary" onClick={finishForThem}>Finalizar participação</button>}
             </div>
           </section>

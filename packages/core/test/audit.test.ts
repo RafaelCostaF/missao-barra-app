@@ -20,6 +20,9 @@ describe('reportKpis', () => {
     expect(k).toMatchObject({ participants: 3, completionRate: 2 / 3, medianFinishS: 230 * 60, calls: 2, peopleWithCalls: 1, medianResolutionS: 180 });
     expect(k.callsPerPerson).toBeCloseTo(0.667, 2);
     expect(k.funnel.map((f) => [f.name, f.reached, f.medianElapsedS! / 60])).toEqual([['A', 3, 0], ['B', 3, 120], ['C', 2, 230]]);
+    // Quem passou em cada ponto (mais rápido primeiro) e quem ainda não passou.
+    expect(k.funnel[1].reachedBy.map((r) => r.user_id)).toEqual(['a', 'b', 'c']);
+    expect(k.funnel[2].missing).toEqual(['c']);
   });
   it('formatos', () => {
     expect(fmtDuration(18120)).toBe('5h 02min');

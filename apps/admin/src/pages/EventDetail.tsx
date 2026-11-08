@@ -11,7 +11,8 @@ const TABS = { monitor: 'Monitoramento', participantes: 'Participantes', alertas
 type Tab = keyof typeof TABS;
 const REASON = { stale: 'Sem sinal', off_route: 'Fora do percurso', behind: 'Retardatário' } as const;
 
-export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string }) {
+/** `extra` na URL: no monitoramento, pessoa em foco; em participantes, `f-<filtro>` ou pessoa com perfil aberto. */
+export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: string; extra?: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<LiveParticipant[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -19,6 +20,11 @@ export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string 
   const [now, setNow] = useState(Date.now());
   const tab: Tab = initialTab && initialTab in TABS ? (initialTab as Tab) : 'monitor';
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  // Seleção no monitoramento: um trecho/grupo aberto e/ou uma pessoa em foco no mapa.
+  const [group, setGroup] = useState<string | null>(null);
+  const focus = tab === 'monitor' ? extra ?? null : null;
+  const focusOn = (uid: string | null) => { location.hash = `#/evento/${id}/monitor${uid ? `/${uid}` : ''}`; };
+  const profile = (uid: string) => `#/evento/${id}/participantes/${uid}`;
 
   const reload = useCallback(async () => {
     const [s, p, a] = await Promise.all([api.session(id), api.live(id), api.alerts(id)]);
@@ -49,6 +55,15 @@ export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string 
   const open = alerts.filter((a) => !a.resolved_at);
   const nameOf = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
   const maxSeg = Math.max(1, ...crowd.segments.map((s) => s.count));
+  const nameOf2 = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
+  // Grupos clicáveis: trechos do percurso e tipos de desvio (todos, não só os 5 do cartão).
+  const groups: Record<string, { label: string; ids: string[] }> = {
+    ...Object.fromEntries(crowd.segments.map((sg) => [`seg:${sg.label}`, { label: sg.label, ids: sg.user_ids }])),
+    ...Object.fromEntries((Object.keys(REASON) as (keyof typeof REASON)[]).map((r) => [`out:${r}`, { label: REASON[r], ids: [...new Set(crowd.outliers.filter((o) => o.reason === r).map((o) => o.user_id))] }])),
+  };
+  const open_ = group ? groups[group] : null;
+  const highlight = open_ ? new Set(open_.ids) : undefined;
+  const toggle = (key: string) => setGroup((g) => (g === key ? null : key));
 
   async function setStatus(to: Session['status']) {
     if (to === 'ended' && !confirm('Encerrar o evento finaliza o rastreamento de todos. Continuar?')) return;
@@ -86,12 +101,21 @@ export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string 
 
       {tab === 'monitor' && (
         <div className="grid2 fade-in">
-          <Map checkpoints={checkpoints} participants={participants} alerts={open} now={now} />
+          <div style={{ display: 'grid', gap: 8 }}>
+            {(open_ || focus) && (
+              <div className="selection fade-in">
+                <span>{focus ? <>Em foco: <b>{nameOf2(focus)}</b> · <a href={profile(focus)}>perfil e contato →</a></> : <>Destacando <b>{open_!.label}</b> ({open_!.ids.length})</>}</span>
+                <button className="secondary" onClick={() => { setGroup(null); focusOn(null); }}>Limpar seleção</button>
+              </div>
+            )}
+            <Map checkpoints={checkpoints} participants={participants} alerts={open} now={now}
+              focus={focus} highlight={highlight} onSelect={(uid) => focusOn(uid)} profileHref={profile} />
+          </div>
           <div className="side">
             <div className="kpis">
-              <div className="kpi ok"><b>{stats.tracking}</b>Ativos</div>
-              <div className="kpi warn"><b>{stats.stale}</b>Sem sinal</div>
-              <div className="kpi"><b>{stats.finished}</b>Finalizados</div>
+              <a className="kpi ok link" href={`#/evento/${id}/participantes/f-tracking`} title="Ver quem está ativo"><b>{stats.tracking}</b>Ativos</a>
+              <a className="kpi warn link" href={`#/evento/${id}/participantes/f-stale`} title="Ver quem está sem sinal"><b>{stats.stale}</b>Sem sinal</a>
+              <a className="kpi link" href={`#/evento/${id}/participantes/f-completed`} title="Ver quem concluiu"><b>{stats.finished}</b>Finalizados</a>
             </div>
 
             <div className="card">
@@ -101,29 +125,44 @@ export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string 
               ) : (
                 <p className="muted">{checkpoints.length < 2 ? 'Cadastre o percurso para ver a distribuição.' : 'Sem posições ativas.'}</p>
               )}
-              {crowd.segments.map((s) => (
-                <div key={s.label} className="bar-row" title={`${s.count} participantes`}>
-                  <span>{s.label}</span>
-                  <div className="bar"><i style={{ width: `${(s.count / maxSeg) * 100}%` }} /></div>
-                  <b>{s.count}</b>
-                </div>
-              ))}
+              {crowd.segments.map((s) => {
+                const key = `seg:${s.label}`;
+                return (
+                  <div key={s.label}>
+                    <button className={`bar-row clickable-row ${group === key ? 'active' : ''}`} onClick={() => toggle(key)} disabled={!s.count}
+                      aria-expanded={group === key} title={s.count ? 'Ver quem está neste trecho' : 'Ninguém neste trecho'}>
+                      <span>{s.label}</span>
+                      <div className="bar"><i style={{ width: `${(s.count / maxSeg) * 100}%` }} /></div>
+                      <b>{s.count}</b>
+                    </button>
+                    {group === key && <PeopleList ids={s.user_ids} nameOf={nameOf2} focus={focus} onFocus={focusOn} profile={profile} />}
+                  </div>
+                );
+              })}
             </div>
 
             <div className="card">
               <h3>Atenção</h3>
+              <div className="chips" style={{ marginBottom: 8 }}>
+                {(Object.keys(REASON) as (keyof typeof REASON)[]).map((r) => {
+                  const key = `out:${r}`, n = groups[key].ids.length;
+                  return <button key={r} className={`chip ${group === key ? 'active' : ''} ${n ? 'hot' : ''}`} disabled={!n} onClick={() => toggle(key)}>{REASON[r]} <b>{n}</b></button>;
+                })}
+              </div>
+              {group?.startsWith('out:') && <PeopleList ids={groups[group].ids} nameOf={nameOf2} focus={focus} onFocus={focusOn} profile={profile}
+                detail={(uid) => crowd.outliers.find((o) => o.user_id === uid && `out:${o.reason}` === group)?.detail} />}
               {!crowd.attention.length && <p className="muted">Ninguém fora do padrão.</p>}
-              {crowd.attention.map((a) => (
-                <div key={a.user_id} className={`attention ${a.reason}`}>
+              {!group?.startsWith('out:') && crowd.attention.map((a) => (
+                <button key={a.user_id} className={`attention ${a.reason} clickable-row ${focus === a.user_id ? 'active' : ''}`} onClick={() => focusOn(a.user_id)} title="Mostrar no mapa">
                   <b>{a.name}</b><span>{REASON[a.reason]} · {a.detail}</span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
         </div>
       )}
 
-      {tab === 'participantes' && <PeopleTab sessionId={id} participants={participants} alerts={alerts} checkpoints={checkpoints} now={now} onChanged={() => void reload()} />}
+      {tab === 'participantes' && <PeopleTab sessionId={id} participants={participants} alerts={alerts} checkpoints={checkpoints} now={now} onChanged={() => void reload()} extra={extra} />}
 
       {tab === 'alertas' && (
         <div className="card scroll fade-in">
@@ -135,9 +174,9 @@ export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string 
               {[...alerts].sort((a, b) => Number(!!a.resolved_at) - Number(!!b.resolved_at)).map((a) => (
                 <tr key={a.id} className={a.resolved_at ? 'resolved' : ''}>
                   <td><span className={`badge alert-${a.type}`}>{ALERT_LABEL[a.type]}</span></td>
-                  <td>{nameOf(a.user_id)}</td>
+                  <td><a href={profile(a.user_id)} title="Perfil e contato">{nameOf(a.user_id)}</a></td>
                   <td>{fmtTime(a.created_at)}</td>
-                  <td>{a.lat != null ? `${a.lat.toFixed(5)}, ${a.lng!.toFixed(5)}` : '—'}</td>
+                  <td>{a.lat != null ? <a href={`#/evento/${id}/monitor/${a.user_id}`} title="Ver no mapa do evento">{a.lat.toFixed(5)}, {a.lng!.toFixed(5)}</a> : '—'}</td>
                   <td>{a.resolved_at ? <span className="muted">Resolvido {fmtTime(a.resolved_at)}</span> : (
                     <button onClick={() => run('admin.resolve_alert', () => api.resolveAlert(a.id)).then(reload)}>Resolvido</button>
                   )}</td>
@@ -152,5 +191,23 @@ export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string 
 
       {tab === 'percurso' && <RouteEditor sessionId={id} initial={checkpoints} onSaved={setCheckpoints} />}
     </>
+  );
+}
+
+/** Lista de pessoas de um grupo: clicar foca no mapa; link abre perfil e contato. */
+function PeopleList({ ids, nameOf, focus, onFocus, profile, detail }: {
+  ids: string[]; nameOf: (uid: string) => string; focus: string | null; onFocus: (uid: string) => void; profile: (uid: string) => string; detail?: (uid: string) => string | undefined;
+}) {
+  if (!ids.length) return <p className="muted">Ninguém.</p>;
+  return (
+    <ul className="people-list fade-in">
+      {ids.map((uid) => (
+        <li key={uid} className={focus === uid ? 'active' : ''}>
+          <button className="linkish" onClick={() => onFocus(uid)} title="Mostrar no mapa">{nameOf(uid)}</button>
+          {detail?.(uid) && <span className="muted"> · {detail(uid)}</span>}
+          <a href={profile(uid)} title="Perfil e contato">perfil</a>
+        </li>
+      ))}
+    </ul>
   );
 }

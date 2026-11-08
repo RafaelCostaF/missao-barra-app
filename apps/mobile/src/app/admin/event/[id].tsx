@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { SESSION_ACTIONS, type SessionStatus } from '@mb/core';
+import { SESSION_ACTIONS, type PersonFilter, type SessionStatus } from '@mb/core';
 import { Body, Screen } from '@/components/ui';
 import { act, Chips, confirm, Pill, SmallButton } from '@/components/admin/kit';
 import { STATUS_LABEL, statusColor } from '@/components/admin/labels';
@@ -16,8 +16,11 @@ type Tab = keyof typeof TABS;
 
 /** Evento oficial para a organização: mesmas abas do painel web. */
 export default function AdminEvent() {
-  const { id, tab: initial } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const { id, tab: initial, focus } = useLocalSearchParams<{ id: string; tab?: string; focus?: string }>();
   const [tab, setTab] = useState<Tab>(initial && initial in TABS ? (initial as Tab) : 'monitor');
+  const [peopleFilter, setPeopleFilter] = useState<PersonFilter>('all');
+  // Números do monitoramento levam à lista já filtrada.
+  const toPeople = (f: PersonFilter) => { setPeopleFilter(f); setTab('participantes'); };
   const live = useLiveSession(id);
   const now = useNow();
   const { session, alerts, reload } = live;
@@ -33,8 +36,8 @@ export default function AdminEvent() {
 
   // Monitoramento e percurso têm mapa: rolagem própria em cada aba.
   const body = {
-    monitor: <EventMonitor sessionId={id} {...live} now={now} />,
-    participantes: <EventPeople sessionId={id} {...live} now={now} />,
+    monitor: <EventMonitor sessionId={id} {...live} now={now} onFilter={toPeople} initialFocus={focus ?? null} />,
+    participantes: <EventPeople sessionId={id} {...live} now={now} initialFilter={peopleFilter} />,
     alertas: <EventAlerts {...live} />,
     relatorio: <EventReport sessionId={id} {...live} />,
     percurso: <RouteEditor sessionId={id} initial={live.checkpoints} onSaved={live.reloadCheckpoints} />,

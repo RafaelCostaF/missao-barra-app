@@ -38,7 +38,8 @@ test('rastreio um a um: filtro, busca e perfil com contato', async ({ page }) =>
   await expect(dialog.getByRole('link', { name: 'WhatsApp' })).toHaveAttribute('href', 'https://wa.me/5571998765432');
   await expect(dialog.getByRole('link', { name: 'Ligar' }).first()).toHaveAttribute('href', 'tel:+5571998765432');
   await expect(dialog.getByText(/Irmão/)).toBeVisible();
-  await expect(dialog.getByRole('link', { name: 'Abrir posição no mapa' })).toHaveAttribute('href', /query=-12\.9681,-38\.4057/);
+  await expect(dialog.getByRole('link', { name: 'Google Maps' })).toHaveAttribute('href', /query=-12\.9681,-38\.4057/);
+  await expect(dialog.getByRole('link', { name: 'Ver no mapa do evento' })).toHaveAttribute('href', new RegExp(`#/evento/${ev.id}/monitor/`));
   await expect(dialog.getByText('Iniciou o percurso')).toBeVisible();
   await expect(dialog.getByText('verificado', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Alergia a dipirona')).toBeVisible();
