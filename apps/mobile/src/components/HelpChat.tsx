@@ -12,7 +12,11 @@ const hhmm = (iso: string) => new Date(iso).toLocaleTimeString('pt-BR', { hour: 
  * Conversa de ajuda participante ↔ organização (evento oficial).
  * `userId` = dono da conversa (participante); `asOrg` = quem está vendo é a organização.
  */
-export function HelpChat({ sessionId, userId, me, asOrg, compact }: { sessionId: string; userId: string; me: string; asOrg?: boolean; compact?: boolean }) {
+export function HelpChat({ sessionId, userId, me, asOrg, compact, name }: {
+  sessionId: string; userId: string; me: string; asOrg?: boolean; compact?: boolean;
+  /** Nome real do participante (no lugar de "Participante"). */
+  name?: string;
+}) {
   const [msgs, setMsgs] = useState<HelpMessage[] | null>(null);
   const [text, setText] = useState('');
   const [sending, setSending] = useState(false);
@@ -60,7 +64,7 @@ export function HelpChat({ sessionId, userId, me, asOrg, compact }: { sessionId:
           const fromOrg = m.sender_id !== m.user_id;
           return (
             <View key={m.id} style={[st.bubble, mine ? st.mine : st.theirs]}>
-              {!mine && <Text style={st.who}>{fromOrg ? 'Organização' : 'Participante'}</Text>}
+              {!mine && <Text style={st.who}>{fromOrg ? 'Organização' : name ?? 'Participante'}</Text>}
               <Text style={[st.body, mine && { color: c.white }]}>{m.body}</Text>
               <Text style={[st.time, mine && { color: c.sand }]}>{hhmm(m.created_at)}</Text>
             </View>

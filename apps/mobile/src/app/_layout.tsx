@@ -48,6 +48,7 @@ export default function RootLayout() {
       <Stack.Screen name="cadastro" options={{ title: 'Cadastro', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="admin/event-new" options={{ title: 'Novo evento', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="admin/event/[id]" options={{ title: 'Evento', headerBackTitle: 'Voltar' }} />
+      <Stack.Screen name="admin/chat" options={{ title: 'Atendimento' }} />
       <Stack.Screen name="admin/participant" options={{ title: 'Participante', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="admin/people" options={{ title: 'Pessoas', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="admin/person/[id]" options={{ title: 'Perfil', headerBackTitle: 'Voltar' }} />

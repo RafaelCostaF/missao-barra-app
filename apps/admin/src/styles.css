@@ -254,3 +254,15 @@ details.menu > summary::-webkit-details-marker { display: none; }
 .bubble .who { font-size: 11px; font-weight: 800; text-transform: uppercase; color: var(--orange-dark); }
 .bubble time { font-size: 10.5px; opacity: .7; justify-self: end; }
 .badge.chat-badge { background: var(--orange-dark); }
+
+/* Atendimentos */
+.inbox { display: grid; gap: 16px; grid-template-columns: minmax(260px, 1fr) minmax(0, 2fr); align-items: start; }
+.inbox:not(.has-chat) { grid-template-columns: 1fr; }
+.inbox-list { display: grid; gap: 6px; }
+.inbox-item { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--line); border-left: 4px solid var(--line); border-radius: 8px; color: var(--charcoal); text-decoration: none; transition: background .15s; }
+.inbox-item:hover, .inbox-item.active { background: var(--sand); }
+.inbox-item.emergency { border-left-color: var(--danger); } .inbox-item.help { border-left-color: var(--stale); }
+.inbox-item .preview { color: var(--ink-soft); font-size: 13.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chat-actions { margin-bottom: 4px; }
+a.badge.chat-badge { text-decoration: none; }
+@media (max-width: 900px) { .inbox.has-chat { grid-template-columns: 1fr; } .inbox.has-chat .inbox-list { display: none; } }

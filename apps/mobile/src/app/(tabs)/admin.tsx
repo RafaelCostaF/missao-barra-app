@@ -58,7 +58,7 @@ export default function AdminHome() {
               <ListItem accent={a.type === 'emergency' ? c.danger : c.warn}
                 title={`${ALERT_LABEL[a.type]} · ${a.profiles?.display_name ?? 'Participante'}`}
                 subtitle={`${a.sessions?.name ?? ''} · ${new Date(a.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}${a.lat == null ? ' · sem posição' : ''}`}
-                onPress={() => router.push(`/admin/participant?session=${a.session_id}&user=${a.user_id}`)} />
+                onPress={() => router.push(a.type === 'signal_lost' ? `/admin/participant?session=${a.session_id}&user=${a.user_id}` : `/admin/chat?session=${a.session_id}&user=${a.user_id}`)} />
               <View style={{ flexDirection: 'row', gap: 8, justifyContent: 'flex-end' }}>
                 <SmallButton icon="checkmark" label="Resolvido" tone="ok" onPress={() => void act('admin.resolve_alert', () => api.resolveAlert(a.id)).then(load)} />
               </View>

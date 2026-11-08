@@ -7,7 +7,6 @@ import { api, download, fmtTime, runOk, supabase } from '../lib';
 import { Modal } from './Modal';
 import { confirmDialog, toast } from './Feedback';
 import { Timeline } from './Timeline';
-import { HelpChat } from './HelpChat';
 
 const ago = (iso: string | null, now: number) => {
   if (!iso) return '—';
@@ -87,7 +86,7 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
                   <td className="flags">
                     <span className={`badge ${s}`}>{SIGNAL_LABEL[s]}</span>
                     {p.flags.has('open_call') && <span className="badge alert-emergency">Chamado</span>}
-                    {waiting.get(p.user_id) ? <span className="badge chat-badge" title="Mensagem de ajuda sem resposta">💬 {waiting.get(p.user_id)}</span> : null}
+                    {waiting.get(p.user_id) ? <a className="badge chat-badge" href={`#/evento/${sessionId}/atendimentos/${p.user_id}`} onClick={(e) => e.stopPropagation()} title="Abrir conversa sem resposta">💬 {waiting.get(p.user_id)}</a> : null}
                     {p.flags.has('off_route') && <span className="badge alert-help">Fora do percurso</span>}
                     {p.flags.has('behind') && <span className="badge alert-help">Retardatário</span>}
                     {p.flags.has('low_battery') && <span className="badge alert-help">Bateria {p.battery}%</span>}
@@ -121,8 +120,6 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
   const s = getSignalState(p as never, now);
   const c = p.contact;
   const [photo, setPhoto] = useState<string | null>(null);
-  const [me, setMe] = useState('');
-  useEffect(() => void api.me().then(setMe), []);
   useEffect(() => {
     if (c?.photo_path) void api.photoUrl(c.photo_path).then(setPhoto).catch(() => setPhoto(null));
   }, [c?.photo_path]);
@@ -170,15 +167,13 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
             <p>{(p.distance_m / 1000).toFixed(1)} km · {p.passed} ponto(s) de apoio</p>
             <p>Bateria: <b className={p.battery != null && p.battery <= LOW_BATTERY ? 'low' : ''}>{p.battery != null ? `${p.battery}%` : 'sem informação'}</b></p>
             <div className="row">
+              <a className="btn secondary" href={`#/evento/${sessionId}/atendimentos/${p.user_id}`}>Conversa de ajuda</a>
               {p.last_lat != null && <a className="btn" href={`#/evento/${sessionId}/monitor/${p.user_id}`}>Ver no mapa do evento</a>}
               {p.last_lat != null && <a className="btn secondary" href={mapsLink(p.last_lat, p.last_lng!)} target="_blank" rel="noopener noreferrer">Google Maps</a>}
               {p.status === 'tracking' && <button className="secondary" onClick={finishForThem}>Finalizar participação</button>}
             </div>
           </section>
         </div>
-
-        <h3 style={{ marginTop: 16 }}>Conversa de ajuda</h3>
-        <HelpChat sessionId={sessionId} userId={p.user_id} me={me} />
 
         <h3 style={{ marginTop: 16 }}>Linha do tempo</h3>
         <Timeline sessionId={sessionId} userId={p.user_id} passages={report?.passages ?? []} alerts={alerts} />

@@ -48,3 +48,24 @@ describe('ajuda por conversa', () => {
     await expect(send(ana, ana, 'oi', race)).rejects.toThrow(/only in official/);
   });
 });
+
+describe('encerrar atendimento', () => {
+  const open = (u: string) => sys(`select count(*)::int n from alerts where session_id = $1 and user_id = $2 and type in ('help','emergency') and resolved_at is null`, [ev, u]);
+  it('participante encerra o próprio (ajuda e emergência), com registro na conversa', async () => {
+    await as(bia, (q) => q(`select raise_alert($1, 'emergency')`, [ev]));
+    await send(bia, bia, 'Caí');
+    expect(await open(bia)).toEqual([{ n: 1 }]);
+    expect((await as(bia, (q) => q(`select close_help($1, $2) n`, [ev, bia])))[0].n).toBe(1);
+    expect(await open(bia)).toEqual([{ n: 0 }]);
+    const [r] = await sys(`select resolved_by from alerts where session_id = $1 and user_id = $2 and type = 'emergency'`, [ev, bia]);
+    expect(r.resolved_by).toBe(bia);
+    expect((await thread(admin, bia)).at(-1)!.body).toBe('Atendimento encerrado pelo participante.');
+  });
+  it('organização encerra o de qualquer um; outro participante não', async () => {
+    await send(ana, ana, 'De novo');
+    await expect(as(bia, (q) => q(`select close_help($1, $2)`, [ev, ana]))).rejects.toThrow(/not allowed/);
+    expect((await as(admin, (q) => q(`select close_help($1, $2) n`, [ev, ana])))[0].n).toBe(1);
+    expect((await thread(ana, ana)).at(-1)).toEqual({ sender_id: admin, body: 'Atendimento encerrado pela organização.' });
+    expect((await as(admin, (q) => q(`select close_help($1, $2) n`, [ev, ana])))[0].n).toBe(0); // nada aberto: sem mensagem repetida
+  });
+});

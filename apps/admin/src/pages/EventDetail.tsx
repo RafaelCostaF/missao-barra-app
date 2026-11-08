@@ -6,9 +6,10 @@ import { RouteEditor } from '../components/RouteEditor';
 import { ALERT_LABEL } from '../components/AlertCenter';
 import { ReportTab } from '../components/ReportTab';
 import { PeopleTab } from '../components/PeopleTab';
+import { HelpInbox } from '../components/HelpInbox';
 import { confirmDialog, toast } from '../components/Feedback';
 
-const TABS = { monitor: 'Monitoramento', participantes: 'Participantes', alertas: 'Alertas', relatorio: 'Relatório', percurso: 'Percurso' } as const;
+const TABS = { monitor: 'Monitoramento', participantes: 'Participantes', atendimentos: 'Atendimentos', alertas: 'Alertas', relatorio: 'Relatório', percurso: 'Percurso' } as const;
 type Tab = keyof typeof TABS;
 const STATUS_PT = { draft: 'Rascunho', published: 'Publicado', live: 'Ao vivo', ended: 'Encerrado', archived: 'Arquivado' } as const;
 const REASON = { stale: 'Sem sinal', off_route: 'Fora do percurso', behind: 'Retardatário' } as const;
@@ -56,6 +57,7 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
   const path = lineToPoints(session.route);
   const crowd = analyzeCrowd(participants, checkpoints, now, path);
   const open = alerts.filter((a) => !a.resolved_at);
+  const openHelp = new Set(open.filter((a) => a.type !== 'signal_lost').map((a) => a.user_id)).size;
   const nameOf = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
   const maxSeg = Math.max(1, ...crowd.segments.map((s) => s.count));
   const nameOf2 = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
@@ -112,8 +114,8 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
 
       <nav className="tabs">
         {(Object.keys(TABS) as Tab[]).map((t) => (
-          <a key={t} href={`#/evento/${id}/${t}`} className={`tab ${tab === t ? 'active' : ''} ${t === 'alertas' && open.length ? 'blink' : ''}`}>
-            {TABS[t]}{t === 'alertas' && open.length ? ` (${open.length})` : ''}
+          <a key={t} href={`#/evento/${id}/${t}`} className={`tab ${tab === t ? 'active' : ''} ${(t === 'alertas' && open.length) || (t === 'atendimentos' && openHelp) ? 'blink' : ''}`}>
+            {TABS[t]}{t === 'alertas' && open.length ? ` (${open.length})` : ''}{t === 'atendimentos' && openHelp ? ` (${openHelp})` : ''}
           </a>
         ))}
       </nav>
@@ -181,6 +183,8 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
         </div>
       )}
 
+      {tab === 'atendimentos' && <HelpInbox sessionId={id} selected={extra} participants={participants} alerts={alerts} onChanged={() => void reload()} />}
+
       {tab === 'participantes' && <PeopleTab sessionId={id} path={path} participants={participants} alerts={alerts} checkpoints={checkpoints} now={now} onChanged={() => void reload()} extra={extra} />}
 
       {tab === 'alertas' && (
@@ -193,7 +197,7 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
               {[...alerts].sort((a, b) => Number(!!a.resolved_at) - Number(!!b.resolved_at)).map((a) => (
                 <tr key={a.id} className={a.resolved_at ? 'resolved' : ''}>
                   <td><span className={`badge alert-${a.type}`}>{ALERT_LABEL[a.type]}</span></td>
-                  <td><a href={profile(a.user_id)} title="Perfil e contato">{nameOf(a.user_id)}</a></td>
+                  <td>{a.type === 'signal_lost' ? <a href={profile(a.user_id)} title="Perfil e contato">{nameOf(a.user_id)}</a> : <a href={`#/evento/${id}/atendimentos/${a.user_id}`} title="Abrir atendimento">{nameOf(a.user_id)}</a>}</td>
                   <td>{fmtTime(a.created_at)}</td>
                   <td>{a.lat != null ? <a href={`#/evento/${id}/monitor/${a.user_id}`} title="Ver no mapa do evento">{a.lat.toFixed(5)}, {a.lng!.toFixed(5)}</a> : '—'}</td>
                   <td>{a.resolved_at ? <span className="muted">Resolvido {fmtTime(a.resolved_at)}</span> : (

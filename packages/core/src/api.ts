@@ -155,6 +155,8 @@ export function createApi(db: SupabaseClient) {
     /** Todas as conversas do evento (organização): base para "mensagens novas". */
     helpMessages: async (sessionId: string) =>
       ok(await db.from('help_messages').select('id, user_id, sender_id, body, created_at').eq('session_id', sessionId).order('id')) as HelpMessage[],
+    /** Encerra o atendimento (ajuda/emergência) — o próprio participante ou a organização. */
+    closeHelp: async (sessionId: string, userId: string) => ok(await db.rpc('close_help', { p_session: sessionId, p_user: userId })) as number,
     /** Envia; a 1ª mensagem do participante abre o pedido de ajuda (servidor). */
     sendHelp: async (sessionId: string, userId: string, body: string) =>
       ok(await db.rpc('send_help_message', { p_session: sessionId, p_user: userId, p_body: body })) as number,

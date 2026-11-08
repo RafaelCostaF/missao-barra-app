@@ -5,13 +5,13 @@ import { lineToPoints, SESSION_ACTIONS, type PersonFilter, type SessionStatus } 
 import { Body, Screen } from '@/components/ui';
 import { act, Chips, confirm, Pill, SmallButton } from '@/components/admin/kit';
 import { STATUS_LABEL, statusColor } from '@/components/admin/labels';
-import { EventAlerts, EventMonitor, EventPeople, EventReport } from '@/components/admin/EventTabs';
+import { EventAlerts, EventInbox, EventMonitor, EventPeople, EventReport } from '@/components/admin/EventTabs';
 import { RouteEditor } from '@/components/admin/RouteEditor';
 import { useLiveSession } from '@/hooks/useLiveSession';
 import { useNow } from '@/hooks/useNow';
 import { api } from '@/lib/services';
 
-const TABS = { monitor: 'Monitoramento', participantes: 'Participantes', alertas: 'Alertas', relatorio: 'Relatório', percurso: 'Percurso' } as const;
+const TABS = { monitor: 'Monitoramento', participantes: 'Participantes', atendimentos: 'Atendimentos', alertas: 'Alertas', relatorio: 'Relatório', percurso: 'Percurso' } as const;
 type Tab = keyof typeof TABS;
 
 /** Evento oficial para a organização: mesmas abas do painel web. */
@@ -27,6 +27,7 @@ export default function AdminEvent() {
 
   if (!session) return <Screen><Body muted>Carregando evento…</Body></Screen>;
   const open = alerts.filter((a) => !a.resolved_at).length;
+  const openHelp = new Set(alerts.filter((a) => !a.resolved_at && a.type !== 'signal_lost').map((a) => a.user_id)).size;
   const path = lineToPoints(session.route);
 
   function setStatus(to: SessionStatus, label: string) {
@@ -39,6 +40,7 @@ export default function AdminEvent() {
   const body = {
     monitor: <EventMonitor sessionId={id} {...live} path={path} now={now} onFilter={toPeople} initialFocus={focus ?? null} />,
     participantes: <EventPeople sessionId={id} {...live} path={path} now={now} initialFilter={peopleFilter} />,
+    atendimentos: <EventInbox sessionId={id} {...live} />,
     alertas: <EventAlerts {...live} />,
     relatorio: <EventReport sessionId={id} {...live} />,
     percurso: <RouteEditor sessionId={id} initial={live.checkpoints} onSaved={async () => { await live.reloadCheckpoints(); await reload(); }} />,
@@ -62,7 +64,7 @@ export default function AdminEvent() {
               void act('admin.delete_test', () => api.deleteTestSession(id)).then((r) => r !== undefined && router.back()), true)} />
           )}
         </ScrollView>
-        <Chips options={TABS} value={tab} onChange={setTab} counts={open ? { alertas: open } : undefined} hot={['alertas']} />
+        <Chips options={TABS} value={tab} onChange={setTab} counts={{ ...(open ? { alertas: open } : {}), ...(openHelp ? { atendimentos: openHelp } : {}) }} hot={['alertas', 'atendimentos']} />
       </View>
       <View style={{ flex: 1 }}>{body}</View>
     </Screen>

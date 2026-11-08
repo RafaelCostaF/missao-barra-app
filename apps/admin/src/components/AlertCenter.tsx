@@ -94,7 +94,7 @@ export function AlertCenter() {
                   <div className="muted">{a.sessions?.name}{a.lat != null ? ` · ${a.lat.toFixed(5)}, ${a.lng!.toFixed(5)}` : ' · sem posição'}</div>
                 </div>
                 <div className="row">
-                  <a className="btn secondary" href={`#/evento/${a.session_id}/participantes/${a.user_id}`} onClick={() => setOpen(false)}>{a.type === 'help' ? 'Conversar' : 'Ver'}</a>
+                  <a className="btn secondary" href={a.type === 'signal_lost' ? `#/evento/${a.session_id}/participantes/${a.user_id}` : `#/evento/${a.session_id}/atendimentos/${a.user_id}`} onClick={() => setOpen(false)}>{a.type === 'signal_lost' ? 'Ver' : 'Atender'}</a>
                   <button onClick={() => run('admin.resolve_alert', () => api.resolveAlert(a.id)).then(reload)}>Resolvido</button>
                 </div>
               </div>

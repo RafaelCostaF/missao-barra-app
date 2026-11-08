@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import {
-  analyzeCrowd, classifyPeople, unanswered, fmtDuration, getSignalState, matchesPerson, pace, PERSON_FILTERS, reportKpis, SIGNAL_LABEL, summarize,
+  analyzeCrowd, classifyPeople, helpInbox, unanswered, type HelpMessage, fmtDuration, getSignalState, matchesPerson, pace, PERSON_FILTERS, reportKpis, SIGNAL_LABEL, summarize,
   type Alert, type Checkpoint, type Contact, type LiveParticipant, type ParticipantSummary, type Person, type PersonFilter,
 } from '@mb/core';
 import { Body, Input, Title } from '@/components/ui';
@@ -186,6 +186,34 @@ export function EventPeople({ sessionId, participants, checkpoints, alerts, now,
   );
 }
 
+const openChat = (sessionId: string, userId: string) => router.push(`/admin/chat?session=${sessionId}&user=${userId}`);
+
+/** Atendimentos: conversas e pedidos de ajuda/emergência; toque abre a conversa (perfil só lá dentro). */
+export function EventInbox({ sessionId, participants, alerts }: Live & { sessionId: string }) {
+  const [msgs, setMsgs] = useState<HelpMessage[]>([]);
+  useEffect(() => {
+    const load = () => void api.helpMessages(sessionId).then(setMsgs).catch(() => undefined);
+    load();
+    const ch = api.subscribe(`inbox:${sessionId}`, ['help_messages'], load, `session_id=eq.${sessionId}`);
+    return () => void supabase.removeChannel(ch);
+  }, [sessionId]);
+  const inbox = helpInbox(msgs, alerts);
+  const nameOf = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? 'Participante';
+  return (
+    <FlatList
+      data={inbox}
+      keyExtractor={(i) => i.user_id}
+      contentContainerStyle={{ gap: 8, paddingVertical: 12 }}
+      ListEmptyComponent={<Body muted small>Nenhum pedido de ajuda ainda. Quando alguém tocar em Ajuda, a conversa aparece aqui.</Body>}
+      renderItem={({ item: i }) => (
+        <ListItem accent={i.open === 'emergency' ? c.danger : i.open ? c.warn : c.line} title={nameOf(i.user_id)}
+          subtitle={`${i.last ? i.last.body : 'Só o alerta, sem mensagem'}\n${[i.open === 'emergency' ? 'Emergência aberta' : i.open ? 'Ajuda aberta' : '', i.waiting ? `💬 ${i.waiting} sem resposta` : '', !i.open && !i.waiting ? 'Encerrado' : ''].filter(Boolean).join(' · ')}`}
+          onPress={() => openChat(sessionId, i.user_id)} />
+      )}
+    />
+  );
+}
+
 /** Todos os alertas do evento, abertos primeiro. */
 export function EventAlerts({ participants, alerts, reload }: Live) {
   const nameOf = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
@@ -200,7 +228,7 @@ export function EventAlerts({ participants, alerts, reload }: Live) {
         <View style={{ gap: 6, opacity: a.resolved_at ? 0.55 : 1 }}>
           <ListItem accent={a.type === 'emergency' ? c.danger : c.warn} title={`${ALERT_LABEL[a.type]} · ${nameOf(a.user_id)}`}
             subtitle={`${hhmm(a.created_at)}${a.lat != null ? ` · ${a.lat.toFixed(5)}, ${a.lng!.toFixed(5)}` : ' · sem posição'}${a.resolved_at ? ` · resolvido ${hhmm(a.resolved_at)}` : ''}`}
-            onPress={() => openPerson(a.session_id, a.user_id)} />
+            onPress={() => (a.type === 'signal_lost' ? openPerson(a.session_id, a.user_id) : openChat(a.session_id, a.user_id))} />
           {!a.resolved_at && (
             <View style={{ alignItems: 'flex-end' }}>
               <SmallButton icon="checkmark" label="Resolvido" tone="ok" onPress={() => void act('admin.resolve_alert', () => api.resolveAlert(a.id)).then(reload)} />
