@@ -78,3 +78,26 @@ describe('pointAlong', async () => {
     expect(mid.lng).toBeGreaterThan(route[2].lng);
   });
 });
+
+describe('logger sem duplicar', () => {
+  it('log gravado durante o envio não reenvia o que já foi', async () => {
+    const sent: string[] = [];
+    let release!: () => void;
+    const fetchImpl = (async (_u: string, init: RequestInit) => {
+      const body = JSON.parse(String(init.body)) as { event: string }[];
+      if (!sent.length) await new Promise<void>((r) => (release = r)); // 1º envio fica "na rede"
+      sent.push(...body.map((b) => b.event));
+      return new Response('{}', { status: 200 });
+    }) as unknown as typeof fetch;
+    const log = createLogger({ endpoint: 'x', getAuthToken: async () => null, storage: memoryStore(), context: () => ({}), fetchImpl });
+    await log.info('a');
+    await log.info('b');
+    const first = log.flush();
+    await new Promise((r) => setTimeout(r, 5));
+    await Promise.all([log.info('c'), log.info('d')]); // chegam durante o envio
+    release();
+    await first;
+    await log.flush();
+    expect(sent).toEqual(['a', 'b', 'c', 'd']);
+  });
+});

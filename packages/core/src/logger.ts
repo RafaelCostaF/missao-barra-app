@@ -47,15 +47,23 @@ export function createLogger(opts: LoggerOptions) {
   const store = jsonStore<LogEntry[]>(opts.storage, 'mb.logBuffer', []);
   const doFetch = opts.fetchImpl ?? fetch;
   let flushing: Promise<void> | null = null;
+  // Toda leitura+escrita do buffer passa por esta fila: sem isso, um log gravado durante o envio
+  // regravava entradas já enviadas e elas chegavam duplicadas no servidor.
+  let chain: Promise<unknown> = Promise.resolve();
+  const locked = <T>(fn: () => Promise<T>): Promise<T> => {
+    const run = chain.then(fn, fn);
+    chain = run.catch(() => undefined);
+    return run;
+  };
 
-  async function push(entry: LogEntry) {
+  const push = (entry: LogEntry) => locked(async () => {
     const buf = await store.load();
     buf.push(entry);
     await store.save(buf.slice(-maxBuffer)); // descarta os mais antigos se offline por muito tempo
-  }
+  });
 
   async function sendBuffered() {
-    const buf = await store.load();
+    const buf = await locked(() => store.load());
     if (!buf.length) return;
     const token = await opts.getAuthToken();
     const res = await doFetch(opts.endpoint, {
@@ -64,9 +72,8 @@ export function createLogger(opts: LoggerOptions) {
       body: JSON.stringify(buf),
     });
     if (!res.ok) throw new Error(`log-ingest ${res.status}`);
-    // Mantém o que chegou durante o envio.
-    const now = await store.load();
-    await store.save(now.slice(buf.length));
+    // Remove só o que foi enviado; mantém o que chegou durante o envio.
+    await locked(async () => store.save((await store.load()).slice(buf.length)));
   }
 
   /** Envia o buffer; falhas mantêm os logs para o próximo flush (ex.: ao reconectar). */
