@@ -17,6 +17,6 @@ export function getSignalState(
 export const SIGNAL_LABEL: Record<SignalState, string> = {
   not_started: 'Não iniciado',
   tracking: 'Monitorando',
-  stale: 'Sinal desatualizado',
+  stale: 'Sem sinal',
   finished: 'Finalizado',
 };

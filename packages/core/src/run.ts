@@ -123,22 +123,72 @@ export interface RouteProgress {
   km: number;
   /** Distância até a linha do percurso, em metros. */
   offRouteM: number;
+  /** Metros ao longo da linha usada (para recortar o caminho à frente). */
+  along?: number;
 }
 
-/** Projeta a posição na linha entre pontos de apoio e converte para o km oficial (interpola entre os km cadastrados). */
-export function routeProgress(p: Point, checkpoints: Checkpoint[]): RouteProgress | null {
-  const route = [...checkpoints].sort((a, b) => a.km - b.km);
-  if (route.length < 2) return null;
-  const lat0 = route[0].lat, q = toXY(p, lat0);
-  let best: RouteProgress = { km: route[0].km, offRouteM: Infinity };
-  for (let i = 0; i < route.length - 1; i++) {
-    const a = toXY(route[i], lat0), b = toXY(route[i + 1], lat0);
-    const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy || 1;
-    const t = Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / len2));
-    const off = Math.hypot(q.x - (a.x + t * dx), q.y - (a.y + t * dy));
-    if (off < best.offRouteM) best = { km: route[i].km + t * (route[i + 1].km - route[i].km), offRouteM: off };
+/** Projeção de um ponto numa linha: distância ao longo dela, afastamento e trecho (a partir de `fromSeg`). */
+export function projectOnPath(p: Point, path: Point[], fromSeg = 0) {
+  const lat0 = path[0].lat, q = toXY(p, lat0);
+  let best = { along: 0, off: Infinity, seg: fromSeg };
+  let acc = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = toXY(path[i], lat0), b = toXY(path[i + 1], lat0);
+    const dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy), len2 = len * len || 1;
+    if (i >= fromSeg) {
+      const t = Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / len2));
+      const off = Math.hypot(q.x - (a.x + t * dx), q.y - (a.y + t * dy));
+      if (off < best.off) best = { along: acc + t * len, off, seg: i };
+    }
+    acc += len;
   }
   return best;
+}
+
+/**
+ * Posição no percurso na escala oficial de km. Com `path` (caminho real pelas ruas), mede a distância até a rua
+ * e interpola o km entre os pontos de apoio projetados no caminho; sem ele, usa a linha reta entre os pontos.
+ */
+export function routeProgress(p: Point, checkpoints: Checkpoint[], path?: Point[] | null): RouteProgress | null {
+  const route = [...checkpoints].sort((a, b) => a.km - b.km);
+  if (route.length < 2) return null;
+  const line = path && path.length > 1 ? path : route;
+  const me = projectOnPath(p, line);
+  // Onde cada ponto de apoio cai no caminho (em ordem, para percursos que passam duas vezes pelo mesmo lugar).
+  let seg = 0;
+  const marks = route.map((c) => {
+    const pr = projectOnPath(c, line, seg);
+    seg = pr.seg;
+    return { km: c.km, along: pr.along };
+  });
+  let km = marks[0].km;
+  if (me.along <= marks[0].along) km = marks[0].km;
+  else if (me.along >= marks.at(-1)!.along) km = marks.at(-1)!.km;
+  else for (let i = 0; i < marks.length - 1; i++) {
+    const a = marks[i], b = marks[i + 1];
+    if (me.along >= a.along && me.along <= b.along) {
+      km = a.km + (b.along > a.along ? (me.along - a.along) / (b.along - a.along) : 0) * (b.km - a.km);
+      break;
+    }
+  }
+  return { km, offRouteM: me.off, along: me.along };
+}
+
+/** Caminho que falta a partir de `along` metros (começa no ponto exato onde a pessoa está). */
+export function pathAhead(path: Point[], along: number): Point[] {
+  const lat0 = path[0].lat;
+  let acc = 0;
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = toXY(path[i], lat0), b = toXY(path[i + 1], lat0);
+    const len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (acc + len >= along) {
+      const t = len ? (along - acc) / len : 0;
+      const start = { lat: path[i].lat + (path[i + 1].lat - path[i].lat) * t, lng: path[i].lng + (path[i + 1].lng - path[i].lng) * t };
+      return [start, ...path.slice(i + 1)];
+    }
+    acc += len;
+  }
+  return [path.at(-1)!];
 }
 
 /** Acima disso a projeção no percurso não é confiável: usa a distância medida pelo GPS. */
@@ -174,6 +224,8 @@ export interface RouteStatus {
   /** km do percurso onde a pessoa está; null fora do percurso ou sem posição. */
   kmNow: number | null;
   offRouteM: number | null;
+  /** Metros ao longo do caminho (só no percurso). */
+  along?: number;
   next: Eta | null;
   finish: Eta | null;
 }
@@ -183,12 +235,13 @@ export interface RouteStatus {
  * No percurso: próximo ponto à frente pelo km. Fora dele: o ponto de apoio mais perto (em linha reta),
  * e a chegada soma essa distância ao trecho que falta a partir desse ponto. Sem posição: nada (não chuta).
  */
-export function routeStatus(pos: Point | null, checkpoints: Checkpoint[], paceS: number | null, now = Date.now()): RouteStatus {
+export function routeStatus(pos: Point | null, checkpoints: Checkpoint[], paceS: number | null, now = Date.now(), path?: Point[] | null): RouteStatus {
   const route = [...checkpoints].sort((a, b) => a.km - b.km);
   const none: RouteStatus = { onRoute: false, kmNow: null, offRouteM: null, next: null, finish: null };
   if (!pos || !route.length) return none;
-  const prog = route.length > 1 ? routeProgress(pos, route) : null;
-  if (prog && prog.offRouteM <= ROUTE_TRUST_M) return { onRoute: true, kmNow: prog.km, offRouteM: prog.offRouteM, ...routeEtas(route, prog.km, paceS, now) };
+  const prog = route.length > 1 ? routeProgress(pos, route, path) : null;
+  if (prog && prog.offRouteM <= ROUTE_TRUST_M)
+    return { onRoute: true, kmNow: prog.km, offRouteM: prog.offRouteM, along: prog.along, ...routeEtas(route, prog.km, paceS, now) };
 
   const eta = (c: Checkpoint, remainingM: number): Eta => {
     const etaS = paceS ? (remainingM / 1000) * paceS : null;
@@ -214,12 +267,12 @@ export interface Nearby {
 }
 
 /** Corredores com posição recente perto de mim, mais próximos primeiro. */
-export function nearbyRunners(me: Point, myKm: number | null, others: LiveParticipant[], checkpoints: Checkpoint[], maxM = 2000, now = Date.now()): Nearby[] {
+export function nearbyRunners(me: Point, myKm: number | null, others: LiveParticipant[], checkpoints: Checkpoint[], maxM = 2000, now = Date.now(), path?: Point[] | null): Nearby[] {
   return others
     .filter((o) => o.status === 'tracking' && o.last_lat != null && o.last_lng != null && getSignalState(o as never, now) === 'tracking')
     .map((o) => {
       const p = { lat: o.last_lat!, lng: o.last_lng! };
-      const prog = myKm != null ? routeProgress(p, checkpoints) : null;
+      const prog = myKm != null ? routeProgress(p, checkpoints, path) : null;
       return {
         user_id: o.user_id,
         name: o.display_name,

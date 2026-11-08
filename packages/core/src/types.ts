@@ -23,6 +23,8 @@ export interface Session {
   owner_id: string;
   starts_at: string | null;
   is_test: boolean;
+  /** Caminho real pelas ruas (GeoJSON LineString), gerado ao salvar o percurso. */
+  route?: { type: 'LineString'; coordinates: [number, number][] } | null;
 }
 
 export interface Checkpoint extends Point {

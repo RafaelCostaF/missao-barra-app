@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { LiveMap } from '@/components/LiveMap';
-import * as Battery from 'expo-battery';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  averagePaceS, fmtClock, fmtPace, nearbyRunners, racePosition, routeStatus,
+  averagePaceS, fmtClock, fmtPace, pathAhead, racePosition, routeStatus, type Point,
   type Checkpoint, type Eta, type LiveParticipant,
 } from '@mb/core';
 import { FadeIn } from '@/components/ui';
-import { api, queue, tracker } from '@/lib/services';
+import { api, tracker } from '@/lib/services';
 import { c, font, radius, shadow } from '@/theme';
 
 const km = (m: number) => `${(m / 1000).toFixed(m < 10_000 ? 2 : 1).replace('.', ',')}`;
@@ -28,25 +27,16 @@ function useStartedAt(sessionId: string, userId: string, status?: string) {
   return at;
 }
 
-/** Bateria e posições ainda não enviadas (sem internet), atualizadas junto com a tela. */
-function useDevice(now: number) {
-  const [d, setD] = useState<{ battery: number | null; pending: number }>({ battery: null, pending: 0 });
-  useEffect(() => {
-    void Promise.all([Battery.getBatteryLevelAsync().catch(() => -1), queue.state().catch(() => ({ pending: [] }))]).then(([b, q]) =>
-      setD({ battery: b < 0 ? null : Math.round(b * 100), pending: (q as { pending: unknown[] }).pending.length }));
-  }, [now]);
-  return d;
-}
-
 /**
  * Painel do corredor (como relógio GPS): pace, tempo, distância, próximo ponto com estimativa,
  * previsão de chegada, posição na prova, quem está perto, parciais e estado do GPS.
  */
-export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
+export function RunPanel({ sessionId, me, participants, checkpoints, now, path }: {
   sessionId: string; me: LiveParticipant; participants: LiveParticipant[]; checkpoints: Checkpoint[]; now: number;
+  /** Caminho real pelas ruas (null = linha reta entre os pontos). */
+  path?: Point[] | null;
 }) {
   const { start, end } = useStartedAt(sessionId, me.user_id, me.status);
-  const device = useDevice(now);
   const live = tracker.stats.snapshot(now);
   const finished = me.status === 'finished';
 
@@ -56,17 +46,18 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
   const paceForEta = live.currentPaceS ?? live.movingPaceS ?? avgPace;
   const pos = me.last_lat != null ? { lat: me.last_lat, lng: me.last_lng! } : null;
   // Sempre a partir da posição real: no percurso, próximo ponto à frente; fora dele, o ponto mais perto.
-  const where = routeStatus(pos, checkpoints, paceForEta, now);
+  const where = routeStatus(pos, checkpoints, paceForEta, now, path);
   const { next, finish, kmNow } = where;
-  const others = participants.filter((p) => p.user_id !== me.user_id);
-  const near = pos ? nearbyRunners(pos, kmNow, others, checkpoints, 2000, now).slice(0, 5) : [];
   const rank = racePosition(me.user_id, participants);
   const heroPace = live.currentPaceS ?? avgPace;
   const [showMap, setShowMap] = useState(true);
   // Caminho à frente: da posição até os próximos pontos (fora do percurso: tracejado até o mais perto).
   const route = [...checkpoints].sort((a, b) => a.km - b.km);
   const target = next ? route.find((c) => c.name === next.name && c.km === next.km) : null;
-  const ahead = !pos ? [] : where.onRoute ? [pos, ...route.filter((c) => c.km > kmNow!)] : target ? [pos, target] : [];
+  // Pelas ruas quando houver caminho real; senão, reta entre os pontos de apoio que faltam.
+  const ahead = !pos ? [] : where.onRoute
+    ? (path && where.along != null ? pathAhead(path, where.along) : [pos, ...route.filter((c) => c.km > kmNow!)])
+    : target ? [pos, target] : [];
 
   if (finished) {
     return (
@@ -94,7 +85,7 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
       </Pressable>
       {showMap && (
         <View style={st.map}>
-          <LiveMap participants={participants} checkpoints={checkpoints} now={now}
+          <LiveMap participants={participants} checkpoints={checkpoints} now={now} path={path}
             runner={{
               me: pos, ahead, aheadStraight: !where.onRoute,
               overlay: (
@@ -145,34 +136,6 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
         </FadeIn>
       )}
 
-      <FadeIn index={2}>
-        <View style={st.card}>
-          <View style={st.head}>
-            <Ionicons name="people-outline" size={18} color={c.orangeDark} />
-            <Text style={st.title}>Perto de você</Text>
-            {rank && <Text style={st.badge}>{rank.position}º de {rank.total}</Text>}
-          </View>
-          {rank?.ahead && <Text style={st.body}>{rank.ahead.gapM > 0 ? `${meters(rank.ahead.gapM)} atrás de ${rank.ahead.name}` : `Lado a lado com ${rank.ahead.name}`}</Text>}
-          {!near.length && <Text style={st.muted}>Ninguém compartilhando posição num raio de 2 km.</Text>}
-          {near.map((n) => (
-            <View key={n.user_id} style={st.nearRow}>
-              <View style={[st.dot, { backgroundColor: n.aheadM == null ? c.inkSoft : n.aheadM >= 0 ? c.orange : c.ok }]} />
-              <Text style={[st.body, { flex: 1 }]} numberOfLines={1}>{n.name}</Text>
-              <Text style={st.nearDist}>
-                {n.aheadM == null ? `a ${meters(n.distanceM)}` : Math.abs(n.aheadM) < 30 ? 'ao seu lado' : `${meters(n.aheadM)} ${n.aheadM > 0 ? 'à frente' : 'atrás'}`}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </FadeIn>
-
-      {live.splits.length > 0 && <FadeIn index={3}><View style={st.card}><Text style={st.title}>Parciais por km</Text><Splits light splits={live.splits} /></View></FadeIn>}
-
-      <View style={st.status}>
-        <Status icon="navigate-circle-outline" text={live.lastAccuracyM != null ? `GPS ±${Math.round(live.lastAccuracyM)} m` : 'GPS aguardando'} warn={live.lastAccuracyM != null && live.lastAccuracyM > 30} />
-        {device.battery != null && <Status icon="battery-half-outline" text={`${device.battery}%`} warn={device.battery <= 20} />}
-        <Status icon={device.pending ? 'cloud-offline-outline' : 'cloud-done-outline'} text={device.pending ? `${device.pending} aguardando internet` : `Enviado ${hhmm(me.last_at)}`} warn={device.pending > 0} />
-      </View>
     </View>
   );
 }
@@ -215,15 +178,6 @@ function Splits({ splits, light }: { splits: number[]; light?: boolean }) {
           </View>
         );
       })}
-    </View>
-  );
-}
-
-function Status({ icon, text, warn }: { icon: keyof typeof Ionicons.glyphMap; text: string; warn?: boolean }) {
-  return (
-    <View style={st.statusItem}>
-      <Ionicons name={icon} size={14} color={warn ? c.danger : c.inkSoft} />
-      <Text style={[st.statusText, warn && { color: c.danger }]}>{text}</Text>
     </View>
   );
 }

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { SESSION_ACTIONS, type PersonFilter, type SessionStatus } from '@mb/core';
+import { lineToPoints, SESSION_ACTIONS, type PersonFilter, type SessionStatus } from '@mb/core';
 import { Body, Screen } from '@/components/ui';
 import { act, Chips, confirm, Pill, SmallButton } from '@/components/admin/kit';
 import { STATUS_LABEL, statusColor } from '@/components/admin/labels';
@@ -27,6 +27,7 @@ export default function AdminEvent() {
 
   if (!session) return <Screen><Body muted>Carregando evento…</Body></Screen>;
   const open = alerts.filter((a) => !a.resolved_at).length;
+  const path = lineToPoints(session.route);
 
   function setStatus(to: SessionStatus, label: string) {
     const run = () => void act('admin.set_status', () => api.setStatus(id, to), { session_id: id, to }).then(reload);
@@ -36,11 +37,11 @@ export default function AdminEvent() {
 
   // Monitoramento e percurso têm mapa: rolagem própria em cada aba.
   const body = {
-    monitor: <EventMonitor sessionId={id} {...live} now={now} onFilter={toPeople} initialFocus={focus ?? null} />,
-    participantes: <EventPeople sessionId={id} {...live} now={now} initialFilter={peopleFilter} />,
+    monitor: <EventMonitor sessionId={id} {...live} path={path} now={now} onFilter={toPeople} initialFocus={focus ?? null} />,
+    participantes: <EventPeople sessionId={id} {...live} path={path} now={now} initialFilter={peopleFilter} />,
     alertas: <EventAlerts {...live} />,
     relatorio: <EventReport sessionId={id} {...live} />,
-    percurso: <RouteEditor sessionId={id} initial={live.checkpoints} onSaved={live.reloadCheckpoints} />,
+    percurso: <RouteEditor sessionId={id} initial={live.checkpoints} onSaved={async () => { await live.reloadCheckpoints(); await reload(); }} />,
   }[tab];
 
   return (

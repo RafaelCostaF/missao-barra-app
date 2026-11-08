@@ -19,10 +19,11 @@ const PRIORITY: PersonFilter[] = ['open_call', 'stale', 'off_route', 'behind', '
 const rank = (p: Person) => { const i = PRIORITY.findIndex((f) => p.flags.has(f)); return i < 0 ? 99 : i; };
 
 /** Rastreio um a um: filtros por situação, busca e perfil com contato. */
-export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, onChanged, extra }: {
+export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, onChanged, extra, path }: {
   sessionId: string; participants: LiveParticipant[]; alerts: Alert[]; checkpoints: Checkpoint[]; now: number; onChanged: () => void;
   /** Da URL: `f-<filtro>` abre já filtrado; outro valor = pessoa com perfil aberto. */
   extra?: string;
+  path?: { lat: number; lng: number }[] | null;
 }) {
   const [report, setReport] = useState<ParticipantSummary[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -51,7 +52,7 @@ export function PeopleTab({ sessionId, participants, alerts, checkpoints, now, o
   }, [sessionId]);
   useEffect(() => void api.contacts(ids ? ids.split(',') : []).then(setContacts).catch(() => undefined), [ids]);
 
-  const people = useMemo(() => classifyPeople(participants, report, alerts, checkpoints, contacts, now), [participants, report, alerts, checkpoints, contacts, now]);
+  const people = useMemo(() => classifyPeople(participants, report, alerts, checkpoints, contacts, now, path), [participants, report, alerts, checkpoints, contacts, now, path]);
   const counts = Object.fromEntries((Object.keys(PERSON_FILTERS) as PersonFilter[]).map((f) => [f, people.filter((p) => p.flags.has(f)).length]));
   const shown = people.filter((p) => p.flags.has(filter) && matchesPerson(p, q)).sort((a, b) => Number(!!waiting.get(b.user_id)) - Number(!!waiting.get(a.user_id)) || rank(a) - rank(b) || a.display_name.localeCompare(b.display_name));
   const person = people.find((p) => p.user_id === selected);

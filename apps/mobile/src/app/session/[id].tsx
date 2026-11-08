@@ -2,9 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { getSignalState, profileMissing, type TrackerState } from '@mb/core';
-import { Body, Button, FadeIn, Screen, SignalBadge, Title } from '@/components/ui';
+import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { getSignalState, lineToPoints, profileMissing, type TrackerState } from '@mb/core';
+import { Body, Button, FadeIn, Screen, SignalBadge } from '@/components/ui';
 import { c, font, radius, shadow } from '@/theme';
 import { LiveMap } from '@/components/LiveMap';
 import { RunPanel } from '@/components/RunPanel';
@@ -48,6 +48,8 @@ export default function SessionScreen() {
   const openAlerts = alerts.filter((a) => !a.resolved_at);
   // Mapa geral aberto por padrão fora do percurso (correndo, o painel mostra o mapa de corredor).
   const mapOpen = showMap ?? true;
+  // Caminho real pelas ruas (gerado ao salvar o percurso); sem ele, linha reta entre os pontos.
+  const path = lineToPoints(session.route);
 
   /** Executa e recarrega; devolve false (e avisa) se falhou. */
   async function act(name: string, fn: () => Promise<unknown>) {
@@ -93,6 +95,17 @@ export default function SessionScreen() {
     Alert.alert('Emergência enviada', 'A equipe de apoio recebeu seu pedido e sua última localização. Em risco de vida, ligue 192 (SAMU) ou 193.');
   }
 
+  /** Toque no selo de sinal: o que é compartilhado e até quando. */
+  function explainMonitoring() {
+    const what = official ? 'a equipe de apoio da Missão Barra e os outros participantes do evento' : 'os amigos desta corrida';
+    Alert.alert(
+      tracking ? 'Você está sendo monitorado' : signal === 'finished' ? 'Participação finalizada' : 'Monitoramento',
+      tracking
+        ? `Durante o percurso, só a sua localização é enviada (a cada ~20 s) para ${what}. Nada mais do celular é acessado.\n\nAo tocar em Finalizar, o envio para.${!backgroundSupported ? '\n\nNo modo de teste, mantenha o app aberto: com a tela bloqueada o envio pausa.' : noBackground ? '\n\nPermita localização "Sempre" para continuar com a tela bloqueada.' : ''}`
+        : signal === 'finished' ? 'Sua localização não está mais sendo compartilhada.' : 'Sua localização só é enviada depois que você inicia o percurso.',
+    );
+  }
+
   function finish() {
     Alert.alert('Finalizar participação?', 'Sua localização deixará de ser compartilhada.', [
       { text: 'Continuar', style: 'cancel' },
@@ -102,22 +115,21 @@ export default function SessionScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
-        <FadeIn>
-          <View style={st.head}>
-            <View style={{ flex: 1, gap: 6 }}>
-              <Title size={17}>{session.name}</Title>
-              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                <SignalBadge state={signal} />
-                {tracking && <Body muted small>Você está sendo monitorado</Body>}
-              </View>
-            </View>
+      {/* Cabeçalho: "Percurso" com o nome do evento como subtítulo; o selo de sinal explica o monitoramento. */}
+      <Stack.Screen options={{
+        headerTitle: () => (
+          <View style={{ alignItems: 'center', maxWidth: 230 }}>
+            <Text style={st.hTitle}>Percurso</Text>
+            <Text style={st.hSub} numberOfLines={1}>{session.name}</Text>
           </View>
-        </FadeIn>
+        ),
+        headerRight: () => (mine ? <SignalBadge state={signal} onPress={explainMonitoring} /> : null),
+      }} />
+      <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
 
         {/* Correndo, o que importa vem primeiro: pace, distância, próximo ponto. Mapa sob demanda. */}
         {mine && (tracking || mine.status === 'finished') && (
-          <RunPanel sessionId={id} me={mine} participants={participants} checkpoints={checkpoints} now={now} />
+          <RunPanel sessionId={id} me={mine} participants={participants} checkpoints={checkpoints} now={now} path={path} />
         )}
 
         {/* Correndo, o mapa de corredor fica dentro do painel; antes/depois, o mapa geral do percurso. */}
@@ -130,14 +142,12 @@ export default function SessionScreen() {
         {!tracking && mapOpen && (
           <FadeIn>
             <View style={st.map}>
-              <LiveMap participants={participants} checkpoints={checkpoints} now={now} />
+              <LiveMap participants={participants} checkpoints={checkpoints} now={now} path={path} />
             </View>
           </FadeIn>
         )}
 
         {tracking && !backgroundSupported && <KeepAwake />}
-        {tracking && !backgroundSupported && <Notice icon="phone-portrait-outline" text="Modo de teste (Expo Go): mantenha o app aberto. A tela fica ligada enquanto você é monitorado." />}
-        {noBackground && backgroundSupported && tracking && <Notice icon="lock-closed-outline" text='Permita localização "Sempre" para continuar com a tela bloqueada.' />}
         {trackerState === 'finished' && mine?.status === 'finished' && <Notice icon="checkmark-circle-outline" tone="ok" text="Participação finalizada. Sua localização não está mais sendo compartilhada." />}
         {openAlerts.filter((a) => a.user_id !== me).map((a) => (
           <Notice key={a.id} icon="alert-circle-outline" tone="danger"
@@ -165,6 +175,7 @@ export default function SessionScreen() {
                   Ao iniciar, sua localização será enviada {official ? 'à equipe de apoio da Missão Barra e aparecerá para os outros participantes do evento (para ver quem corre perto)' : 'aos amigos que aceitaram esta corrida'} a cada
                   ~20 segundos até você tocar em Finalizar.
                 </Body>
+                <Body muted small>O app não substitui equipe médica nem garante resgate.</Body>
                 <Button icon="shield-checkmark-outline" label="Entendi, quero compartilhar" onPress={() => setConsent(true)} />
               </View>
             </FadeIn>
@@ -179,7 +190,6 @@ export default function SessionScreen() {
             await api.setStatus(id, 'ended');
           })} />
         )}
-        <Body muted small>O app não substitui equipe médica nem garante resgate.</Body>
       </ScrollView>
 
       {/* Sempre à mão, sem rolar: emergência, ajuda e finalizar. */}
@@ -258,7 +268,8 @@ function HoldButton({ label, hint, onHold, onTap }: { label: string; hint: strin
 }
 
 const st = StyleSheet.create({
-  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  hTitle: { fontFamily: font.display, fontSize: 16, color: c.white },
+  hSub: { fontFamily: font.body, fontSize: 11.5, color: c.sand },
   mapToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.surface },
   mapToggleText: { fontFamily: font.bold, fontSize: 13, color: c.charcoal, textTransform: 'uppercase', letterSpacing: 0.6 },
   actionBar: { gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.white },

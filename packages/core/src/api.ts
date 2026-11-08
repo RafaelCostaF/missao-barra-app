@@ -92,6 +92,8 @@ export function createApi(db: SupabaseClient) {
       ok(await db.from('sessions').upsert({ kind: 'official', owner_id: await me(), ...s }).select().single()) as Session,
     setStatus: async (id: string, status: SessionStatus) => ok(await db.from('sessions').update({ status }).eq('id', id)),
     deleteTestSession: async (id: string) => ok(await db.from('sessions').delete().eq('id', id).eq('is_test', true)),
+    /** Guarda o caminho pelas ruas (ou null = linha reta entre os pontos). */
+    saveRoute: async (sessionId: string, route: Session['route']) => ok(await db.from('sessions').update({ route }).eq('id', sessionId)),
     checkpoints: async (sessionId: string) =>
       ok(await db.from('checkpoints').select('*').eq('session_id', sessionId).order('km')) as Checkpoint[],
     /** Substitui todos os pontos de apoio do evento. */

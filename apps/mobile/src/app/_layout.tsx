@@ -39,7 +39,7 @@ export default function RootLayout() {
   if (!fontsLoaded || auth === undefined) return null;
   return (
     <>
-    <Stack screenOptions={{ headerStyle: { backgroundColor: c.charcoal }, headerTintColor: c.white, headerTitleStyle: { fontFamily: font.display } }}>
+    <Stack screenOptions={{ headerStyle: { backgroundColor: c.charcoal }, headerTintColor: c.white, headerTitleStyle: { fontFamily: font.display }, headerBackButtonDisplayMode: 'minimal' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="session/[id]" options={{ title: 'Percurso' }} />

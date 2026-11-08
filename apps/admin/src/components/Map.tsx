@@ -34,6 +34,8 @@ export function Map(props: {
   highlight?: Set<string>;
   onSelect?: (userId: string) => void;
   profileHref?: (userId: string) => string;
+  /** Caminho real pelas ruas; sem ele, liga os pontos de apoio em linha reta. */
+  path?: { lat: number; lng: number }[] | null;
 }) {
   const { checkpoints, participants = [], alerts = [], now = Date.now(), focus, highlight, onSelect, profileHref } = props;
   const [map, setMap] = useState<LMap | null>(null);
@@ -86,7 +88,7 @@ export function Map(props: {
         <Grab onMap={setMap} />
         <TileLayer attribution="&copy; OpenStreetMap" url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
         <ClickHandler onClick={props.onClick} />
-        {checkpoints.length > 1 && <Polyline positions={checkpoints.map((c) => [c.lat, c.lng])} pathOptions={{ color: '#d94f16', weight: 4 }} />}
+        {(props.path?.length ?? checkpoints.length) > 1 && <Polyline positions={(props.path ?? checkpoints).map((c) => [c.lat, c.lng])} pathOptions={{ color: '#d94f16', weight: 4 }} />}
         {checkpoints.map((c, i) => (
           <CircleMarker key={`cp${i}`} center={[c.lat, c.lng]} radius={7} pathOptions={{ color: '#c93c05', fillOpacity: 1 }}>
             <Popup>{c.name} · km {c.km}</Popup>

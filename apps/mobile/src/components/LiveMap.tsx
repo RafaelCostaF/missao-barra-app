@@ -18,8 +18,10 @@ const PAD = { top: 48, right: 48, bottom: 48, left: 48 };
  * `focus` centraliza e abre o balão de uma pessoa; `highlight` destaca um grupo; tocar no balão chama `onSelect`.
  * Botão "Centralizar" volta à visão do percurso + participantes.
  */
-export function LiveMap({ participants, checkpoints, now, focus, highlight, onSelect, runner }: {
+export function LiveMap({ participants, checkpoints, now, focus, highlight, onSelect, runner, path }: {
   participants: LiveParticipant[]; checkpoints: Checkpoint[]; now: number;
+  /** Caminho real pelas ruas; sem ele, liga os pontos de apoio em linha reta. */
+  path?: { lat: number; lng: number }[] | null;
   focus?: string | null; highlight?: Set<string>; onSelect?: (userId: string) => void;
   /**
    * Modo corredor: a câmera segue a pessoa (perto, virada para onde ela anda), o caminho à frente
@@ -90,8 +92,8 @@ export function LiveMap({ participants, checkpoints, now, focus, highlight, onSe
           if (u.heading != null && u.heading >= 0 && (u.speed ?? 0) > 0.7) heading.current = u.heading;
           follow({ latitude: u.latitude, longitude: u.longitude });
         } : undefined}>
-        {checkpoints.length > 1 && (
-          <Polyline coordinates={checkpoints.map((p) => ({ latitude: p.lat, longitude: p.lng }))}
+        {(path?.length ?? checkpoints.length) > 1 && (
+          <Polyline coordinates={(path ?? checkpoints).map((p) => ({ latitude: p.lat, longitude: p.lng }))}
             strokeColor={runner ? 'rgba(217,79,22,0.35)' : c.orange} strokeWidth={runner ? 3 : 4} />
         )}
         {runner && runner.ahead.length > 1 && (

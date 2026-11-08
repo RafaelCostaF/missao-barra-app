@@ -2,10 +2,10 @@ import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
-import type { Checkpoint, CheckpointKind } from '@mb/core';
+import { snapRoute, type Checkpoint, type CheckpointKind } from '@mb/core';
 import { Body, Button, Input } from '@/components/ui';
 import { mapAvailable, SALVADOR } from '@/components/LiveMap';
-import { act, Card, SmallButton } from './kit';
+import { Card, SmallButton } from './kit';
 import { api } from '@/lib/services';
 import { c, radius } from '@/theme';
 
@@ -35,10 +35,26 @@ export function RouteEditor({ sessionId, initial, onSaved }: { sessionId: string
       ...x, name: x.name.trim(), kind: (i === 0 ? 'start' : i === arr.length - 1 ? 'finish' : 'stop') as CheckpointKind,
     }));
     setBusy(true);
-    const ok = await act('admin.save_checkpoints', () => api.saveCheckpoints(sessionId, sorted), { count: sorted.length });
-    if (ok !== undefined) await onSaved();
+    let saved = true;
+    try {
+      await api.saveCheckpoints(sessionId, sorted);
+    } catch (e) {
+      saved = false;
+      Alert.alert('Não foi possível salvar', (e as Error).message);
+    }
+    // Caminho pelas ruas (roteador a pé do OpenStreetMap, gratuito). Falhou: fica a linha reta.
+    let streets = false;
+    if (saved) {
+      try {
+        await api.saveRoute(sessionId, sorted.length > 1 ? await snapRoute(sorted) : null);
+        streets = true;
+      } catch {
+        await api.saveRoute(sessionId, null).catch(() => undefined);
+      }
+      await onSaved();
+    }
     setBusy(false);
-    if (ok !== undefined) Alert.alert('Percurso salvo', `${sorted.length} ponto(s) de apoio.`);
+    if (saved) Alert.alert('Percurso salvo', streets ? `${sorted.length} ponto(s), desenhado pelas ruas.` : `${sorted.length} ponto(s). O desenho pelas ruas falhou e ficou em linha reta; tente salvar de novo.`);
   }
 
   const first = cps[0];

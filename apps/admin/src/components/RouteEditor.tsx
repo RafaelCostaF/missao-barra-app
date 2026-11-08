@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { Checkpoint, CheckpointKind, SessionStatus } from '@mb/core';
+import { snapRoute, type Checkpoint, type CheckpointKind, type SessionStatus } from '@mb/core';
 import { api, runOk } from '../lib';
 import { Map } from './Map';
 import { confirmDialog, toast } from './Feedback';
@@ -7,7 +7,9 @@ import { confirmDialog, toast } from './Feedback';
 type Draft = Omit<Checkpoint, 'id' | 'session_id'>;
 
 /** Clique no mapa adiciona ponto de apoio; largada e chegada são o primeiro e o último por km. */
-export function RouteEditor({ sessionId, initial, onSaved, status }: { sessionId: string; initial: Checkpoint[]; onSaved: (c: Checkpoint[]) => void; status: SessionStatus }) {
+export function RouteEditor({ sessionId, initial, onSaved, status, path }: {
+  sessionId: string; initial: Checkpoint[]; onSaved: (c: Checkpoint[]) => void; status: SessionStatus; path?: { lat: number; lng: number }[] | null;
+}) {
   const [cps, setCps] = useState<Draft[]>([]);
   const saved = JSON.stringify(initial.map(({ name, km, lat, lng }) => ({ name, km, lat, lng })));
   useEffect(() => setCps(initial.map(({ name, km, lat, lng, kind }) => ({ name, km, lat, lng, kind }))), [initial]);
@@ -49,13 +51,22 @@ export function RouteEditor({ sessionId, initial, onSaved, status }: { sessionId
       kind: (i === 0 ? 'start' : i === arr.length - 1 ? 'finish' : 'stop') as CheckpointKind,
     }));
     if (!(await runOk('admin.save_checkpoints', () => api.saveCheckpoints(sessionId, sorted), { count: sorted.length }))) return;
+    // Caminho pelas ruas (roteador a pé do OpenStreetMap, gratuito). Falhou: fica a linha reta.
+    let streets = true;
+    try {
+      await api.saveRoute(sessionId, sorted.length > 1 ? await snapRoute(sorted) : null);
+    } catch {
+      streets = false;
+      await api.saveRoute(sessionId, null).catch(() => undefined);
+    }
     onSaved(await api.checkpoints(sessionId));
-    toast(`Percurso salvo: ${sorted.length} ponto(s) de apoio.`);
+    toast(streets ? `Percurso salvo pelas ruas: ${sorted.length} ponto(s) de apoio.` : `Percurso salvo (${sorted.length} pontos), mas o desenho pelas ruas falhou: ficou em linha reta. Tente salvar de novo.`, streets ? 'ok' : 'info');
   }
 
   return (
     <div className="grid2">
-      <Map checkpoints={cps} onClick={add} />
+      {/* Enquanto edita, mostra o caminho salvo só se os pontos não mudaram. */}
+      <Map checkpoints={cps} onClick={add} path={dirty ? null : path} />
       <div className="card scroll">
         <h3>Pontos de apoio</h3>
         {running && <p className="warn-box">{status === 'live' ? 'Evento ao vivo' : 'Evento publicado'}: mudanças aqui afetam km e estimativas de todos os participantes.</p>}

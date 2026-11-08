@@ -12,17 +12,17 @@ import { ago, ALERT_LABEL, hhmm } from './labels';
 import { api, supabase } from '@/lib/services';
 import { c, font, radius, signalColor } from '@/theme';
 
-type Live = { participants: LiveParticipant[]; checkpoints: Checkpoint[]; alerts: Alert[]; reload: () => Promise<void> };
+type Live = { participants: LiveParticipant[]; checkpoints: Checkpoint[]; alerts: Alert[]; reload: () => Promise<void>; path?: { lat: number; lng: number }[] | null };
 const REASON = { stale: 'Sem sinal', off_route: 'Fora do percurso', behind: 'Retardatário' } as const;
 const openPerson = (sessionId: string, userId: string) => router.push(`/admin/participant?session=${sessionId}&user=${userId}`);
 
 /** Mapa, contadores, distribuição pelo percurso e quem precisa de atenção — tudo tocável para achar a pessoa. */
-export function EventMonitor({ sessionId, participants, checkpoints, alerts, now, onFilter, initialFocus = null }: Live & { sessionId: string; now: number; onFilter: (f: PersonFilter) => void; initialFocus?: string | null }) {
+export function EventMonitor({ sessionId, participants, checkpoints, alerts, now, onFilter, initialFocus = null, path }: Live & { sessionId: string; now: number; onFilter: (f: PersonFilter) => void; initialFocus?: string | null }) {
   const [group, setGroup] = useState<string | null>(null);
   const [focus, setFocus] = useState<string | null>(initialFocus);
   const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
   const stats = summarize(participants, alerts, now);
-  const crowd = analyzeCrowd(participants, checkpoints, now);
+  const crowd = analyzeCrowd(participants, checkpoints, now, path);
   const maxSeg = Math.max(1, ...crowd.segments.map((s) => s.count));
   const nameOf = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
   const groups: Record<string, { label: string; ids: string[] }> = {
@@ -50,7 +50,7 @@ export function EventMonitor({ sessionId, participants, checkpoints, alerts, now
         </View>
       )}
       <View style={{ height: 320, borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: c.line }}>
-        <LiveMap participants={participants} checkpoints={checkpoints} now={now} focus={focus} highlight={highlight} onSelect={(uid) => openPerson(sessionId, uid)} />
+        <LiveMap participants={participants} checkpoints={checkpoints} now={now} path={path} focus={focus} highlight={highlight} onSelect={(uid) => openPerson(sessionId, uid)} />
       </View>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <KpiButton label="Ativos" value={stats.tracking} tone={c.ok} onPress={() => onFilter('tracking')} />
@@ -121,7 +121,7 @@ const PRIORITY: PersonFilter[] = ['open_call', 'stale', 'off_route', 'behind', '
 const rank = (p: Person) => { const i = PRIORITY.findIndex((f) => p.flags.has(f)); return i < 0 ? 99 : i; };
 
 /** Rastreio um a um: filtros por situação, busca e CSV. */
-export function EventPeople({ sessionId, participants, checkpoints, alerts, now, initialFilter = 'all' }: Live & { sessionId: string; now: number; initialFilter?: PersonFilter }) {
+export function EventPeople({ sessionId, participants, checkpoints, alerts, now, initialFilter = 'all', path }: Live & { sessionId: string; now: number; initialFilter?: PersonFilter }) {
   const [report, setReport] = useState<ParticipantSummary[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [filter, setFilter] = useState<PersonFilter>(initialFilter);
@@ -145,7 +145,7 @@ export function EventPeople({ sessionId, participants, checkpoints, alerts, now,
     return () => void supabase.removeChannel(ch);
   }, [sessionId]);
 
-  const people = useMemo(() => classifyPeople(participants, report, alerts, checkpoints, contacts, now), [participants, report, alerts, checkpoints, contacts, now]);
+  const people = useMemo(() => classifyPeople(participants, report, alerts, checkpoints, contacts, now, path), [participants, report, alerts, checkpoints, contacts, now, path]);
   const counts = Object.fromEntries((Object.keys(PERSON_FILTERS) as PersonFilter[]).map((f) => [f, people.filter((p) => p.flags.has(f)).length])) as Record<PersonFilter, number>;
   const shown = people.filter((p) => p.flags.has(filter) && matchesPerson(p, q)).sort((a, b) => Number(!!waiting.get(b.user_id)) - Number(!!waiting.get(a.user_id)) || rank(a) - rank(b) || a.display_name.localeCompare(b.display_name));
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  averagePaceS, createRunStats, etaTo, routeStatus, fmtClock, fmtPace, nearbyRunners, racePosition, routeEtas, routeProgress,
+  averagePaceS, createRunStats, etaTo, lineToPoints, pathAhead, routeStatus, snapRoute, fmtClock, fmtPace, nearbyRunners, racePosition, routeEtas, routeProgress,
   type Checkpoint, type Fix, type LiveParticipant,
 } from '../src';
 
@@ -111,5 +111,39 @@ describe('quem está perto', () => {
     const field = [p('eu', 4200), p('bia', 4500), p('caio', 3900), p('zé', 100, { status: 'accepted' })];
     expect(racePosition('eu', field)).toEqual({ position: 2, total: 3, ahead: { name: 'bia', gapM: 300 } });
     expect(racePosition('bia', field)!.ahead).toBeNull();
+  });
+});
+
+describe('percurso pelas ruas (caminho real)', () => {
+  // Caminho em "L": 2 km para oeste e depois 2 km para o norte. Pontos de apoio: início (0), canto (2), fim (4).
+  const north = (m: number) => LAT + m / 110_574;
+  const path = [{ lat: LAT, lng: LNG }, { lat: LAT, lng: west(2000) }, { lat: north(2000), lng: west(2000) }];
+  const L = [{ km: 0, lat: LAT, lng: LNG }, { km: 2, lat: LAT, lng: west(2000) }, { km: 4, lat: north(2000), lng: west(2000) }]
+    .map((c, i) => ({ ...c, id: String(i), session_id: 's', name: `P${i}`, kind: 'stop' as const }));
+
+  it('na rua certa da curva fica no percurso; a linha reta entre pontos não daria isso', async () => {
+    const onStreet = { lat: north(1000), lng: west(2000) }; // metade da subida
+    const viaPath = routeProgress(onStreet, L, path)!;
+    expect(viaPath.offRouteM).toBeLessThan(20);
+    expect(viaPath.km).toBeCloseTo(3, 1);
+    // Na rua, no canto da curva: pela reta início→fim parece 1,3 km fora; pelo caminho real está na rua.
+    const corner = { lat: north(30), lng: west(1990) };
+    expect(routeProgress(corner, [L[0], L[2]])!.offRouteM).toBeGreaterThan(1000);
+    expect(routeProgress(corner, [L[0], L[2]], path)!.offRouteM).toBeLessThan(40);
+  });
+  it('caminho à frente começa onde a pessoa está e segue até o fim', () => {
+    const st = routeStatus({ lat: LAT, lng: west(1000) }, L, 360, T0, path);
+    expect(st.kmNow).toBeCloseTo(1, 1);
+    const ahead = pathAhead(path, st.along!);
+    expect(ahead[0].lng).toBeCloseTo(west(1000), 4);
+    expect(ahead.at(-1)).toEqual(path.at(-1));
+    expect(ahead).toHaveLength(3);
+  });
+  it('snapRoute usa o roteador a pé e devolve GeoJSON; erro do serviço vira exceção', async () => {
+    const ok = (async () => new Response(JSON.stringify({ code: 'Ok', routes: [{ geometry: { type: 'LineString', coordinates: [[-38.1, -12.9], [-38.2, -12.95]] } }] }))) as unknown as typeof fetch;
+    expect(await snapRoute([path[0], path[2]], ok)).toEqual({ type: 'LineString', coordinates: [[-38.1, -12.9], [-38.2, -12.95]] });
+    const bad = (async () => new Response(JSON.stringify({ code: 'NoRoute' }), { status: 400 })) as unknown as typeof fetch;
+    await expect(snapRoute([path[0], path[2]], bad)).rejects.toThrow(/NoRoute/);
+    expect(lineToPoints({ type: 'LineString', coordinates: [[-38.1, -12.9], [-38.2, -12.95]] })).toEqual([{ lat: -12.9, lng: -38.1 }, { lat: -12.95, lng: -38.2 }]);
   });
 });

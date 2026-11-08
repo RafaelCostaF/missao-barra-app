@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { analyzeCrowd, SESSION_ACTIONS, summarize, type Alert, type Checkpoint, type LiveParticipant, type Session } from '@mb/core';
+import { analyzeCrowd, lineToPoints, SESSION_ACTIONS, summarize, type Alert, type Checkpoint, type LiveParticipant, type Session } from '@mb/core';
 import { api, fmtTime, run, runOk, supabase } from '../lib';
 import { Map } from '../components/Map';
 import { RouteEditor } from '../components/RouteEditor';
@@ -53,7 +53,8 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
 
   if (!session) return <div className="card skeleton">Carregando…</div>;
   const stats = summarize(participants, alerts, now);
-  const crowd = analyzeCrowd(participants, checkpoints, now);
+  const path = lineToPoints(session.route);
+  const crowd = analyzeCrowd(participants, checkpoints, now, path);
   const open = alerts.filter((a) => !a.resolved_at);
   const nameOf = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
   const maxSeg = Math.max(1, ...crowd.segments.map((s) => s.count));
@@ -126,7 +127,7 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
                 <button className="secondary" onClick={() => { setGroup(null); focusOn(null); }}>Limpar seleção</button>
               </div>
             )}
-            <Map checkpoints={checkpoints} participants={participants} alerts={open} now={now}
+            <Map checkpoints={checkpoints} participants={participants} alerts={open} now={now} path={path}
               focus={focus} highlight={highlight} onSelect={(uid) => focusOn(uid)} profileHref={profile} />
           </div>
           <div className="side">
@@ -180,7 +181,7 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
         </div>
       )}
 
-      {tab === 'participantes' && <PeopleTab sessionId={id} participants={participants} alerts={alerts} checkpoints={checkpoints} now={now} onChanged={() => void reload()} extra={extra} />}
+      {tab === 'participantes' && <PeopleTab sessionId={id} path={path} participants={participants} alerts={alerts} checkpoints={checkpoints} now={now} onChanged={() => void reload()} extra={extra} />}
 
       {tab === 'alertas' && (
         <div className="card scroll fade-in">
@@ -207,7 +208,7 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
 
       {tab === 'relatorio' && <ReportTab sessionId={id} alerts={alerts} checkpoints={checkpoints} />}
 
-      {tab === 'percurso' && <RouteEditor sessionId={id} initial={checkpoints} onSaved={setCheckpoints} status={session.status} />}
+      {tab === 'percurso' && <RouteEditor sessionId={id} initial={checkpoints} onSaved={(c) => { setCheckpoints(c); void reload(); }} status={session.status} path={path} />}
     </>
   );
 }

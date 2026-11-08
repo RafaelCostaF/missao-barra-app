@@ -6,16 +6,21 @@ import { Body, Button, Empty, FadeIn, Row, Screen, SignalBadge, Title } from '@/
 import { BrandHero } from '@/components/BrandHero';
 import { api, logger } from '@/lib/services';
 
+const MY_LABEL: Record<string, string> = { tracking: 'Você está em percurso', finished: 'Você finalizou', accepted: 'Inscrito' };
+
 export default function Events() {
   const [events, setEvents] = useState<Session[]>([]);
   const [loading, setLoading] = useState(false);
+  // Minha situação em cada evento (o selo do evento não fala de mim).
+  const [myStatus, setMyStatus] = useState<Map<string, string | undefined>>(new Map());
   const [missing, setMissing] = useState<string[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [evs, ct] = await Promise.all([api.publishedEvents(), api.myContact()]);
+      const [evs, ct, mine] = await Promise.all([api.publishedEvents(), api.myContact(), api.mySessions().catch(() => [])]);
       setEvents(evs);
+      setMyStatus(new Map((mine as { id: string; participants: { status: string }[] }[]).map((m) => [m.id, m.participants[0]?.status])));
       setMissing(profileMissing(ct));
     } catch (e) {
       void logger.error('api.events', e);
@@ -50,7 +55,10 @@ export default function Events() {
         ListEmptyComponent={loading ? undefined : <Empty icon="calendar-outline" text="Nenhum evento oficial publicado no momento." />}
         renderItem={({ item, index }) => (
           <Row index={index} onPress={() => router.push(`/session/${item.id}`)}>
-            {item.status === 'live' && <SignalBadge state="tracking" />}
+            <View style={{ flexDirection: 'row', gap: 6, flexWrap: 'wrap' }}>
+              {item.status === 'live' && <SignalBadge state="tracking" label="Ao vivo" />}
+              {MY_LABEL[myStatus.get(item.id) ?? ''] && <SignalBadge state={myStatus.get(item.id) === 'tracking' ? 'tracking' : 'finished'} label={MY_LABEL[myStatus.get(item.id)!]} />}
+            </View>
             <Title size={19}>{item.name}</Title>
             <Body muted>
               {item.starts_at ? new Date(item.starts_at).toLocaleString('pt-BR', { dateStyle: 'full', timeStyle: 'short' }) : 'Data a definir'}

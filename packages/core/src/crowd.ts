@@ -1,4 +1,5 @@
 import { getSignalState } from './signal';
+import { routeProgress } from './run';
 import type { Checkpoint, Point } from './types';
 import type { LiveParticipant } from './api';
 
@@ -18,30 +19,12 @@ export interface CrowdAnalysis {
   outliers: Attention[];
 }
 
-// Projeção local em metros (equiretangular): suficiente para distâncias de poucos km.
-const toXY = (p: Point, lat0: number) => ({ x: p.lng * 111_320 * Math.cos((lat0 * Math.PI) / 180), y: p.lat * 110_574 });
-
-/** Posição de um ponto na rota: trecho mais próximo, distância percorrida ao longo da rota e afastamento lateral. */
-function locate(p: Point, route: Point[], lat0: number) {
-  const q = toXY(p, lat0);
-  let best = { seg: 0, along: 0, off: Infinity };
-  let acc = 0;
-  for (let i = 0; i < route.length - 1; i++) {
-    const a = toXY(route[i], lat0), b = toXY(route[i + 1], lat0);
-    const dx = b.x - a.x, dy = b.y - a.y, len2 = dx * dx + dy * dy || 1;
-    const t = Math.max(0, Math.min(1, ((q.x - a.x) * dx + (q.y - a.y) * dy) / len2));
-    const off = Math.hypot(q.x - (a.x + t * dx), q.y - (a.y + t * dy));
-    if (off < best.off) best = { seg: i, along: acc + t * Math.sqrt(len2), off };
-    acc += Math.sqrt(len2);
-  }
-  return best;
-}
-
 const quantile = (s: number[], q: number) => s[Math.min(s.length - 1, Math.floor(q * (s.length - 1)))];
 const mins = (ms: number) => `${Math.round(ms / 60_000)} min sem sinal`;
 
 /** Leitura operacional do evento: onde está a maioria e quem precisa de atenção. */
-export function analyzeCrowd(participants: LiveParticipant[], checkpoints: Checkpoint[], now = Date.now()): CrowdAnalysis {
+/** `path`: caminho real pelas ruas (quando houver), para não marcar como fora do percurso quem está na rua certa. */
+export function analyzeCrowd(participants: LiveParticipant[], checkpoints: Checkpoint[], now = Date.now(), path?: Point[] | null): CrowdAnalysis {
   const route = [...checkpoints].sort((a, b) => a.km - b.km);
   const active = participants.filter((p) => p.status === 'tracking');
   const attention: Attention[] = [];
@@ -53,8 +36,13 @@ export function analyzeCrowd(participants: LiveParticipant[], checkpoints: Check
   const positioned = active.filter((p) => p.last_lat != null && p.last_lng != null);
   if (route.length < 2) return { positioned: positioned.length, segments: [], majority: null, attention: attention.slice(0, MAX_ATTENTION), outliers: attention };
 
-  const lat0 = route[0].lat;
-  const located = positioned.map((p) => ({ p, ...locate({ lat: p.last_lat!, lng: p.last_lng! }, route, lat0) }));
+  const located = positioned.map((p) => {
+    const pr = routeProgress({ lat: p.last_lat!, lng: p.last_lng! }, route, path)!;
+    // Trecho = intervalo entre pontos de apoio onde o km cai; "along" na escala oficial (km → m).
+    let seg = route.findIndex((c, i) => i < route.length - 1 && pr.km >= c.km && pr.km <= route[i + 1].km);
+    if (seg < 0) seg = pr.km < route[0].km ? 0 : route.length - 2;
+    return { p, seg, along: pr.km * 1000, off: pr.offRouteM };
+  });
   const segments = route.slice(0, -1).map((c, i) => {
     const here = located.filter((l) => l.seg === i).sort((a, b) => b.along - a.along); // quem vai mais à frente primeiro
     return { label: `${c.name} → ${route[i + 1].name}`, count: here.length, user_ids: here.map((l) => l.p.user_id) };

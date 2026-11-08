@@ -2,7 +2,7 @@ import { analyzeCrowd } from './crowd';
 import { getSignalState } from './signal';
 import type { Alert, LiveParticipant } from './api';
 import type { ParticipantSummary } from './audit';
-import type { Checkpoint } from './types';
+import type { Checkpoint, Point } from './types';
 
 export interface Contact {
   user_id: string;
@@ -46,10 +46,10 @@ export interface Person extends LiveParticipant {
  */
 export function classifyPeople(
   live: LiveParticipant[], report: ParticipantSummary[], alerts: Pick<Alert, 'user_id' | 'resolved_at'>[],
-  checkpoints: Checkpoint[], contacts: Contact[] = [], now = Date.now(),
+  checkpoints: Checkpoint[], contacts: Contact[] = [], now = Date.now(), path?: Point[] | null,
 ): Person[] {
   const last = [...checkpoints].sort((a, b) => b.km - a.km)[0];
-  const { outliers } = analyzeCrowd(live, checkpoints, now);
+  const { outliers } = analyzeCrowd(live, checkpoints, now, path);
   const offRoute = new Set(outliers.filter((a) => a.reason === 'off_route').map((a) => a.user_id));
   const behind = new Set(outliers.filter((a) => a.reason === 'behind').map((a) => a.user_id));
   const openCall = new Set(alerts.filter((a) => !a.resolved_at).map((a) => a.user_id));

@@ -113,13 +113,17 @@ export function PulseDot({ color = c.ok, active = true }: { color?: string; acti
   );
 }
 
-export function SignalBadge({ state }: { state: SignalState }) {
-  return (
+/** Bolinha colorida + uma palavra. `onPress` torna o selo tocável (ex.: explicar o monitoramento). */
+export function SignalBadge({ state, onPress, label }: { state: SignalState; onPress?: () => void; label?: string }) {
+  const body = (
     <View style={[s.badge, { backgroundColor: `${signalColor[state]}1A` }]}>
       <PulseDot color={signalColor[state]} active={state === 'tracking'} />
-      <Text style={[s.badgeText, { color: signalColor[state] }]}>{SIGNAL_LABEL[state]}</Text>
+      <Text style={[s.badgeText, { color: signalColor[state] }]}>{label ?? SIGNAL_LABEL[state]}</Text>
+      {onPress && <Ionicons name="information-circle-outline" size={13} color={signalColor[state]} />}
     </View>
   );
+  if (!onPress) return body;
+  return <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${label ?? SIGNAL_LABEL[state]}: o que isso significa`}>{body}</Pressable>;
 }
 
 /** Cartão de lista (toque opcional) com entrada escalonada. */
@@ -164,8 +168,8 @@ export const s = StyleSheet.create({
   kbBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#F1F1F3', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
   kbOk: { fontFamily: font.bold, fontSize: 16, color: c.orangeDark },
   input: { borderWidth: 1.5, borderColor: c.line, borderRadius: radius, padding: 14, fontFamily: font.body, fontSize: 16, backgroundColor: c.surface },
-  badge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
-  badgeText: { fontFamily: font.bold, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
+  badge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999 },
+  badgeText: { fontFamily: font.bold, fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.4 },
   row: { padding: space.lg, borderRadius: radius, backgroundColor: c.surface, gap: space.sm, borderWidth: 1, borderColor: c.line, ...shadow },
   stat: { flex: 1, backgroundColor: c.surface, borderRadius: radius, padding: space.md, borderWidth: 1, borderColor: c.line },
   statValue: { fontFamily: font.display, fontSize: 20, color: c.charcoal },
