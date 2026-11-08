@@ -32,7 +32,7 @@ describe('cadastro seguro', () => {
   });
 
   it('verifica o celular por código SMS (número de teste)', async () => {
-    expect(profileMissing(await ana.myContact())).toEqual(['foto', 'celular verificado']);
+    expect(profileMissing(await ana.myContact())).toEqual(['foto', 'celular']);
     await ana.requestPhoneCode(TEST_PHONE);
     await expect(ana.confirmPhoneCode(TEST_PHONE, '000000')).rejects.toThrow();
     await ana.confirmPhoneCode(TEST_PHONE, '123456');

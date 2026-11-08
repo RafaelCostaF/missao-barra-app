@@ -24,9 +24,18 @@ describe('dados de contato', () => {
     const [c] = await as(ana, (q) => q(`select phone, registration_number, phone_verified_at is not null as ok from profile_contacts where user_id = $1`, [ana]));
     expect(c).toEqual({ phone: `+${PHONE}`, registration_number: 'MB-0042', ok: true });
   });
+  it('sem SMS: a pessoa informa o próprio celular (formato validado); trocar desfaz a verificação', async () => {
+    const [v] = await as(bia, (q) => q(`select phone_verified_at is not null as ok from profile_contacts where user_id = $1`, [bia]));
+    expect(v.ok).toBe(true);
+    await expect(as(bia, (q) => q(`update profile_contacts set phone = '71 99999' where user_id = $1`, [bia]))).rejects.toThrow(/check/);
+    const [c] = await as(bia, (q) => q(`update profile_contacts set phone = '+5571977776666' where user_id = $1 returning phone, phone_verified_at`, [bia]));
+    expect(c).toEqual({ phone: '+5571977776666', phone_verified_at: null });
+    const [ok] = await sys(`select profile_complete($1) as ok`, [bia]);
+    expect(ok.ok).toBe(true);
+  });
   it('outros usuários (até amigos) não leem nem alteram', async () => {
     expect(await as(bia, (q) => q(`select * from profile_contacts where user_id = $1`, [ana]))).toHaveLength(0);
-    await expect(as(bia, (q) => q(`update profile_contacts set phone = 'x' where user_id = $1`, [ana]))).rejects.toThrow(/permission denied/);
+    expect(await as(bia, (q) => q(`update profile_contacts set phone = '+5571988887777' where user_id = $1 returning 1`, [ana]))).toHaveLength(0);
     expect(await as(bia, (q) => q(`update profile_contacts set registration_number = 'x' where user_id = $1 returning 1`, [ana]))).toHaveLength(0);
     await expect(as(bia, (q) => q(`insert into profile_contacts (user_id, registration_number) values ($1, 'x')`, [ana]))).rejects.toThrow();
   });

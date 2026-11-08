@@ -139,8 +139,8 @@ export function createApi(db: SupabaseClient) {
 
     // ---------- perfil e contato ----------
     myContact: async () => ok(await db.from('profile_contacts').select('*').eq('user_id', await me()).maybeSingle()) as Contact | null,
-    /** Campos editáveis pelo próprio usuário (celular só via verificação SMS). */
-    saveMyContact: async (c: Partial<Pick<Contact, 'registration_number' | 'emergency_name' | 'emergency_phone' | 'photo_path' | 'health_notes'>>) => {
+    /** Campos editáveis pelo próprio usuário. Celular em E.164 (+55…); trocar o número desfaz a verificação. */
+    saveMyContact: async (c: Partial<Pick<Contact, 'phone' | 'registration_number' | 'emergency_name' | 'emergency_phone' | 'photo_path' | 'health_notes'>>) => {
       const user_id = await me();
       const { data } = await db.from('profile_contacts').select('user_id').eq('user_id', user_id).maybeSingle();
       ok(data ? await db.from('profile_contacts').update(c).eq('user_id', user_id) : await db.from('profile_contacts').insert({ ...c, user_id }));

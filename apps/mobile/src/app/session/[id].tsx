@@ -130,7 +130,7 @@ export default function SessionScreen() {
         {missing.length > 0 && !tracking && official && (
           <>
             <Notice icon="person-circle-outline" tone="danger" text={`Para participar, complete seu cadastro: falta ${missing.join(' e ')}.`} />
-            <Button icon="person-circle-outline" label="Completar cadastro" onPress={() => router.push('/profile')} />
+            <Button icon="person-circle-outline" label="Completar cadastro" onPress={() => router.push('/cadastro')} />
           </>
         )}
         {!(missing.length > 0 && official) && !tracking && mine?.status !== 'finished' && session.status === 'live' && (

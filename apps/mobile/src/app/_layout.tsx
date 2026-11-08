@@ -6,6 +6,7 @@ import { Inter_400Regular, Inter_800ExtraBold } from '@expo-google-fonts/inter';
 import type { Session as AuthSession } from '@supabase/supabase-js';
 import { api, logContext, logger, supabase } from '@/lib/services';
 import { useNotices } from '@/hooks/useNotices';
+import { KeyboardBar } from '@/components/ui';
 import { c, font } from '@/theme';
 
 export default function RootLayout() {
@@ -37,11 +38,15 @@ export default function RootLayout() {
 
   if (!fontsLoaded || auth === undefined) return null;
   return (
+    <>
     <Stack screenOptions={{ headerStyle: { backgroundColor: c.charcoal }, headerTintColor: c.white, headerTitleStyle: { fontFamily: font.display } }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="session/[id]" options={{ title: 'Percurso' }} />
       <Stack.Screen name="race/new" options={{ title: 'Nova corrida' }} />
+      <Stack.Screen name="cadastro" options={{ title: 'Cadastro', headerBackTitle: 'Voltar' }} />
     </Stack>
+    <KeyboardBar />
+    </>
   );
 }

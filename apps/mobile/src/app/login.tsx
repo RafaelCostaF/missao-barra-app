@@ -42,7 +42,7 @@ export default function Login() {
         {mode === 'up' && <Input placeholder="Nome completo" value={name} onChangeText={setName} autoComplete="name" />}
         <Input placeholder="E-mail" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
         <Input placeholder="Senha" secureTextEntry value={password} onChangeText={setPassword} autoComplete={mode === 'up' ? 'new-password' : 'current-password'} />
-        {mode === 'up' && <Body muted small>Mínimo de 8 caracteres, com letras e números. Depois você adiciona foto e confirma o celular por SMS.</Body>}
+        {mode === 'up' && <Body muted small>Mínimo de 8 caracteres, com letras e números. Depois você adiciona foto e celular no Perfil.</Body>}
         <Button icon={mode === 'in' ? 'log-in-outline' : 'person-add-outline'} haptic="light" label={mode === 'in' ? 'Entrar' : 'Criar conta'} onPress={submit} busy={busy} />
         <Button variant="secondary" label={mode === 'in' ? 'Criar conta' : 'Já tenho conta'} onPress={() => setMode(mode === 'in' ? 'up' : 'in')} />
       </KeyboardAvoidingView>

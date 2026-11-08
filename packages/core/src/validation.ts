@@ -23,10 +23,24 @@ export function passwordProblem(pw: string): string | null {
 
 export const isEmail = (s: string) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(s.trim());
 
-/** O que falta para iniciar evento oficial (mesma regra do banco: foto + celular verificado). */
-export function profileMissing(c: { phone_verified_at?: string | null; photo_path?: string | null } | null): ('foto' | 'celular verificado')[] {
-  const missing: ('foto' | 'celular verificado')[] = [];
+/** Máscara enquanto digita (DDD + número): "7133334444" → "(71) 3333-4444", "71999990000" → "(71) 99999-0000". Ignora +55 colado. */
+export function maskPhoneBR(input: string): string {
+  let d = input.replace(/\D/g, '');
+  if (d.length > 11 && d.startsWith('55')) d = d.slice(2);
+  d = d.slice(0, 11);
+  if (d.length <= 2) return d.length ? `(${d}` : '';
+  if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`;
+  if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+  return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+}
+
+/** Telefone com DDD (fixo ou celular), para contato de emergência. */
+export const isPhoneBR = (s: string) => /^[1-9][0-9]\d{8,9}$/.test(s.replace(/\D/g, '').replace(/^55(?=\d{10,11}$)/, ''));
+
+/** O que falta para iniciar evento oficial (mesma regra do banco, `profile_complete`: foto + celular). */
+export function profileMissing(c: { phone?: string | null; photo_path?: string | null } | null): ('foto' | 'celular')[] {
+  const missing: ('foto' | 'celular')[] = [];
   if (!c?.photo_path) missing.push('foto');
-  if (!c?.phone_verified_at) missing.push('celular verificado');
+  if (!c?.phone) missing.push('celular');
   return missing;
 }

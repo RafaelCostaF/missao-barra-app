@@ -126,7 +126,7 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
             <h3>Contato</h3>
             {c?.phone ? (
               <>
-                <p className="big">{formatPhoneBR(c.phone)} {c.phone_verified_at ? <span className="badge tracking" title="Confirmado por SMS">verificado</span> : <span className="badge not_started">não verificado</span>}</p>
+                <p className="big">{formatPhoneBR(c.phone)} {c.phone_verified_at ? <span className="badge tracking" title="Confirmado por SMS">verificado</span> : null}</p>
                 <div className="row">
                   <a className="btn" href={telLink(c.phone)}>Ligar</a>
                   <a className="btn secondary" href={whatsappLink(c.phone)} target="_blank" rel="noopener noreferrer">WhatsApp</a>

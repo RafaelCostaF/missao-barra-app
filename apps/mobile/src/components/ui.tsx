@@ -1,10 +1,26 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { ActivityIndicator, Animated, Easing, InputAccessoryView, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { SIGNAL_LABEL, type SignalState } from '@mb/core';
 import { c, font, radius, shadow, signalColor, space } from '@/theme';
+
+const KEYBOARD_BAR = 'mb-keyboard-ok';
+
+/** Barra "OK" sobre o teclado no iOS (o teclado numérico não tem tecla para fechar). Montada uma vez no layout raiz. */
+export function KeyboardBar() {
+  if (Platform.OS !== 'ios') return null;
+  return (
+    <InputAccessoryView nativeID={KEYBOARD_BAR}>
+      <View style={s.kbBar}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Fechar teclado" hitSlop={12} onPress={() => Keyboard.dismiss()}>
+          <Text style={s.kbOk}>OK</Text>
+        </Pressable>
+      </View>
+    </InputAccessoryView>
+  );
+}
 
 export function Screen({ children }: { children: ReactNode }) {
   return <SafeAreaView style={s.screen} edges={['bottom']}>{children}</SafeAreaView>;
@@ -62,8 +78,20 @@ export function Button({ label, onPress, variant = 'primary', busy, disabled, ic
   );
 }
 
-export function Input(props: TextInputProps) {
-  return <TextInput placeholderTextColor={c.inkSoft} {...props} style={[s.input, props.style]} />;
+/** Campo de texto; `label` fica visível acima (o placeholder some ao digitar), `hint` abaixo. */
+export function Input({ label, hint, ...props }: TextInputProps & { label?: string; hint?: string }) {
+  const input = (
+    <TextInput placeholderTextColor={c.inkSoft} inputAccessoryViewID={KEYBOARD_BAR} returnKeyType={props.multiline ? 'default' : 'done'}
+      accessibilityLabel={label ?? props.placeholder} {...props} style={[s.input, props.style]} />
+  );
+  if (!label && !hint) return input;
+  return (
+    <View style={{ gap: 4 }}>
+      {label && <Text style={s.label}>{label}</Text>}
+      {input}
+      {hint && <Text style={s.hint}>{hint}</Text>}
+    </View>
+  );
 }
 
 /** Ponto pulsante: indica "ao vivo" sem chamar atenção demais. */
@@ -130,6 +158,10 @@ export const s = StyleSheet.create({
   buttonInner: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   outline: { borderWidth: 1.5, borderColor: c.line },
   buttonText: { fontFamily: font.bold, fontSize: 14, letterSpacing: 1.1 },
+  label: { fontFamily: font.bold, fontSize: 12, color: c.charcoal, letterSpacing: 0.4, textTransform: 'uppercase' },
+  hint: { fontFamily: font.body, fontSize: 12, color: c.inkSoft },
+  kbBar: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#F1F1F3', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.line },
+  kbOk: { fontFamily: font.bold, fontSize: 16, color: c.orangeDark },
   input: { borderWidth: 1.5, borderColor: c.line, borderRadius: radius, padding: 14, fontFamily: font.body, fontSize: 16, backgroundColor: c.surface },
   badge: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 999 },
   badgeText: { fontFamily: font.bold, fontSize: 12, textTransform: 'uppercase', letterSpacing: 0.5 },
