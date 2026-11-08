@@ -9,7 +9,7 @@ async function login(page: Page) {
   await page.getByPlaceholder('E-mail').fill(EMAIL);
   await page.getByPlaceholder('Senha').fill(PASSWORD);
   await page.getByRole('button', { name: /entrar/i }).click();
-  await expect(page.getByText('Missão Barra · Painel')).toBeVisible();
+  await expect(page.locator('header .signal')).toBeVisible();
 }
 
 test('senha errada não entra', async ({ page }) => {
@@ -29,7 +29,7 @@ test('cria evento pela interface, marca o percurso e conduz o ciclo de vida', as
   await page.getByRole('button', { name: /criar/i }).click();
   await expect(page.getByRole('heading', { name })).toBeVisible();
 
-  await page.getByRole('button', { name: 'Percurso e apoio' }).click();
+  await page.getByRole('link', { name: 'Percurso', exact: true }).click();
   const map = page.locator('.map');
   await map.click({ position: { x: 200, y: 200 } });
   await map.click({ position: { x: 400, y: 260 } });
@@ -44,22 +44,38 @@ test('cria evento pela interface, marca o percurso e conduz o ciclo de vida', as
     await expect(page.getByRole('button', { name: new RegExp(action) })).toHaveCount(0);
   }
   await page.reload();
-  await page.getByRole('button', { name: 'Percurso e apoio' }).click();
+  await page.getByRole('link', { name: 'Percurso', exact: true }).click();
   await expect(page.locator('tbody input').first()).toHaveValue('Largada'); // salvou no banco
 });
 
-test('acompanha o evento simulado ao vivo e resolve a emergência', async ({ page }) => {
+test('monitoramento enxuto; alertas ficam no indicador e na aba', async ({ page }) => {
   await login(page);
   await page.getByRole('row', { name: /ensaio de campo/ }).first().getByRole('link').click();
-  await expect(page.getByText('Monitorando', { exact: true }).first()).toBeVisible();
-  const alert = page.locator('.alert', { hasText: 'EMERGÊNCIA' }).first();
-  await expect(alert).toBeVisible();
-  await expect(page.locator('tbody tr')).not.toHaveCount(0);
-  await expect(page.locator('.leaflet-interactive').first()).toBeVisible(); // marcadores no mapa
-  await shot(page, '02-ao-vivo');
-  const before = await page.locator('.alert', { hasText: 'EMERGÊNCIA' }).count();
-  await alert.getByRole('button', { name: 'Resolvido' }).click();
-  await expect(page.locator('.alert', { hasText: 'EMERGÊNCIA' })).toHaveCount(before - 1);
+  await expect(page.locator('.kpi', { hasText: 'Ativos' })).toBeVisible();
+  await expect(page.getByText('Onde está o grupo')).toBeVisible();
+  await expect(page.locator('.alert, .toast')).toHaveCount(0); // nada de alerta sobre o monitoramento
+  await expect(page.locator('.leaflet-interactive').first()).toBeVisible();
+  await page.waitForTimeout(1500); // tiles
+  await shot(page, '02-monitoramento');
+
+  const signal = page.locator('header .signal');
+  await expect(signal).toHaveClass(/emergency/);
+  await signal.click();
+  await expect(page.getByRole('dialog')).toBeVisible();
+  await page.waitForTimeout(400); // animação de entrada
+  // O modal precisa ficar acima do mapa (Leaflet usa z-index alto).
+  const box = (await page.getByRole('dialog').boundingBox())!;
+  const top = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest('[role=dialog]') != null, [box.x + box.width / 2, box.y + box.height / 2]);
+  expect(top).toBe(true);
+  await shot(page, '06-modal-alertas');
+  const rows = page.locator('.alert-row', { hasText: 'Ana Notificação' }); // só alertas criados pelos testes
+  const before = await rows.count();
+  await rows.first().getByRole('button', { name: 'Resolvido' }).click();
+  await expect(rows).toHaveCount(before - 1);
+  await page.getByRole('button', { name: 'Fechar' }).click();
+
+  await page.getByRole('link', { name: /^Alertas/ }).click();
+  await expect(page.locator('tr.resolved').first()).toBeVisible();
 });
 
 test('logs: filtra por nível e exporta CSV', async ({ page }) => {
@@ -72,4 +88,27 @@ test('logs: filtra por nível e exporta CSV', async ({ page }) => {
   const download = page.waitForEvent('download');
   await page.getByRole('button', { name: /exportar csv/i }).click();
   expect((await download).suggestedFilename()).toMatch(/^logs-.*\.csv$/);
+});
+
+test('relatório: indicadores, funil por ponto e linha do tempo por pessoa', async ({ page }) => {
+  await login(page);
+  await page.getByRole('row', { name: /ensaio de campo/ }).first().getByRole('link').click();
+  const openInTab = Number((await page.getByRole('link', { name: /^Alertas/ }).textContent())!.match(/\((\d+)\)/)?.[1] ?? 0);
+  if (openInTab) await expect(page.locator('header .signal')).not.toHaveText('Sem alertas');
+  await page.getByRole('link', { name: 'Relatório' }).click();
+  await expect(page.locator('.kpi', { hasText: 'Concluíram' })).toBeVisible();
+  await expect(page.getByText('Avanço por ponto de apoio')).toBeVisible();
+  const rows = page.locator('tr.clickable');
+  await expect(rows.first()).toBeVisible();
+  await shot(page, '07-relatorio');
+  await rows.first().click();
+  const dialog = page.getByRole('dialog');
+  await expect(dialog.locator('.timeline li').first()).toBeVisible();
+  await expect(dialog.getByText(/Passou por|Iniciou o percurso/).first()).toBeVisible();
+  await page.waitForTimeout(400);
+  await shot(page, '08-linha-do-tempo');
+  const csv = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('button', { name: /exportar csv/i }).click();
+  expect((await csv).suggestedFilename()).toMatch(/^relatorio-.*\.csv$/);
 });

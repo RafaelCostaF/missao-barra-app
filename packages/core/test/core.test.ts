@@ -64,3 +64,17 @@ describe('toFix', () => {
     expect(accumulate(null, [f]).last).toBeNull();
   });
 });
+
+describe('pointAlong', async () => {
+  const { pointAlong, routeLength, haversine } = await import('../src');
+  const route = [{ lat: -12.9570655, lng: -38.3536886 }, { lat: -12.9681066, lng: -38.4057227 }, { lat: -13.0101987, lng: -38.5329168 }];
+  it('segue a rota e nunca passa da chegada', () => {
+    const total = routeLength(route);
+    expect(pointAlong(route, 0)).toEqual(route[0]);
+    expect(haversine(pointAlong(route, haversine(route[0], route[1])), route[1])).toBeLessThan(1);
+    expect(pointAlong(route, total + 50_000)).toEqual(route[2]); // não entra no mar além da Barra
+    const mid = pointAlong(route, total * 0.75);
+    expect(mid.lng).toBeLessThan(route[1].lng);
+    expect(mid.lng).toBeGreaterThan(route[2].lng);
+  });
+});

@@ -1,4 +1,6 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
+import type { ParticipantSummary } from './audit';
+import type { Contact } from './people';
 import type { Change } from './notifications';
 import type { AlertType, Checkpoint, Fix, Session, SessionStatus } from './types';
 
@@ -12,6 +14,7 @@ export interface LiveParticipant {
   last_at: string | null;
   last_lat: number | null;
   last_lng: number | null;
+  battery?: number | null;
 }
 
 export interface Alert {
@@ -102,8 +105,13 @@ export function createApi(db: SupabaseClient) {
       updateMine(sessionId, { status: 'tracking', sharing: true }),
     setSharing: async (sessionId: string, sharing: boolean) => updateMine(sessionId, { sharing }),
     finish: async (sessionId: string) => updateMine(sessionId, { status: 'finished' }),
-    pushPositions: async (sessionId: string, fixes: Fix[], distanceM: number) =>
-      ok(await db.rpc('push_positions', { p_session: sessionId, p_fixes: fixes, p_distance_m: distanceM })),
+    pushPositions: async (sessionId: string, fixes: Fix[], distanceM: number, battery?: number | null) =>
+      ok(await db.rpc('push_positions', { p_session: sessionId, p_fixes: fixes, p_distance_m: distanceM, ...(battery != null && { p_battery: battery }) })),
+    /** Organização finaliza a participação de alguém (desistência, celular descarregado). */
+    finishFor: async (sessionId: string, userId: string) => {
+      const rows = ok(await db.from('participants').update({ status: 'finished' }).eq('session_id', sessionId).eq('user_id', userId).select('status'));
+      if (!rows.length) throw new Error('participation not found');
+    },
     /** Status atual de todos os participantes visíveis (base do cache de avisos do painel). */
     participantStatuses: async () =>
       ok(await db.from('participants').select('session_id, user_id, status')) as { session_id: string; user_id: string; status: string }[],
@@ -117,7 +125,45 @@ export function createApi(db: SupabaseClient) {
       ok(await db.rpc('raise_alert', { p_session: sessionId, p_type: type })) as string,
     alerts: async (sessionId: string) =>
       ok(await db.from('alerts').select('*').eq('session_id', sessionId).order('created_at', { ascending: false })) as Alert[],
+    /** Alertas abertos de todas as sessões visíveis (central de alertas do painel). */
+    openAlerts: async () =>
+      ok(await db.from('alerts').select('*, sessions(name), profiles!alerts_user_id_fkey(display_name)').is('resolved_at', null).order('created_at', { ascending: false })) as
+        (Alert & { sessions: { name: string } | null; profiles: { display_name: string } | null })[],
     resolveAlert: async (id: string) => ok(await db.from('alerts').update({ resolved_at: new Date().toISOString() }).eq('id', id)),
+
+    // ---------- relatório e auditoria ----------
+    report: async (sessionId: string) => ok(await db.rpc('session_report', { p_session: sessionId })) as ParticipantSummary[],
+    timeline: async (sessionId: string, userId: string) =>
+      ok(await db.from('participant_events').select('event, actor, at').eq('session_id', sessionId).eq('user_id', userId).order('at')) as
+        { event: string; actor: string | null; at: string }[],
+
+    // ---------- perfil e contato ----------
+    myContact: async () => ok(await db.from('profile_contacts').select('*').eq('user_id', await me()).maybeSingle()) as Contact | null,
+    /** Campos editáveis pelo próprio usuário (celular só via verificação SMS). */
+    saveMyContact: async (c: Partial<Pick<Contact, 'registration_number' | 'emergency_name' | 'emergency_phone' | 'photo_path' | 'health_notes'>>) => {
+      const user_id = await me();
+      const { data } = await db.from('profile_contacts').select('user_id').eq('user_id', user_id).maybeSingle();
+      ok(data ? await db.from('profile_contacts').update(c).eq('user_id', user_id) : await db.from('profile_contacts').insert({ ...c, user_id }));
+    },
+    /** Passo 1 da verificação: envia SMS com código de 6 dígitos para o celular (E.164). */
+    requestPhoneCode: async (phoneE164: string) => ok(await db.auth.updateUser({ phone: phoneE164 })),
+    /** Passo 2: confirma o código; o banco passa a ter o celular como verificado. */
+    confirmPhoneCode: async (phoneE164: string, code: string) =>
+      ok(await db.auth.verifyOtp({ phone: phoneE164, token: code.trim(), type: 'phone_change' })),
+    /** Foto (JPEG já reduzida no cliente) em bucket privado: avatars/<user>/foto-<ts>.jpg. */
+    uploadPhoto: async (bytes: ArrayBuffer) => {
+      const path = `${await me()}/foto-${Date.now()}.jpg`;
+      ok(await db.storage.from('avatars').upload(path, bytes, { contentType: 'image/jpeg', upsert: true }));
+      return path;
+    },
+    /** URL temporária (1 h) para exibir a foto; só dono e organização conseguem gerar. */
+    photoUrl: async (path: string) => ok(await db.storage.from('avatars').createSignedUrl(path, 3600)).signedUrl,
+    staff: async () => ok(await db.rpc('list_staff')) as { id: string; display_name: string; email: string }[],
+    setStaff: async (email: string, admin: boolean) => ok(await db.rpc('set_staff', { p_email: email, p_admin: admin })),
+    setDisplayName: async (name: string) => ok(await db.from('profiles').update({ display_name: name }).eq('id', await me())),
+    /** Contatos dos participantes (somente organização; RLS). */
+    contacts: async (userIds: string[]) =>
+      userIds.length ? (ok(await db.from('profile_contacts').select('*').in('user_id', userIds)) as Contact[]) : [],
 
     // ---------- amizades ----------
     searchPeople: async (q: string) =>

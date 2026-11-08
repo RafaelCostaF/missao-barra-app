@@ -32,13 +32,20 @@ export async function as<T>(userId: string, fn: (q: Query) => Promise<T>): Promi
 /** Como superusuário (service role / jobs agendados). */
 export const sys: Query = async (sql, params) => (await pool.query(sql, params)).rows;
 
-/** Simula um cadastro no Supabase Auth; o trigger cria o perfil. */
-export async function signUp(name: string, role: 'user' | 'admin' = 'user'): Promise<string> {
+/** Cadastro completo (foto + celular verificado), exigido para iniciar evento oficial. */
+export async function completeProfile(userId: string) {
+  await sys(`insert into profile_contacts (user_id, phone, phone_verified_at, photo_path) values ($1::uuid, '+5571999990000', now(), $1::text || '/foto.jpg')
+             on conflict (user_id) do update set phone_verified_at = now(), photo_path = excluded.photo_path`, [userId]);
+}
+
+/** Simula um cadastro no Supabase Auth; o trigger cria o perfil. `complete: false` deixa sem foto/celular. */
+export async function signUp(name: string, role: 'user' | 'admin' = 'user', complete = true): Promise<string> {
   const id = randomUUID();
   await sys(`insert into auth.users (id, email, raw_user_meta_data) values ($1, $2, $3)`, [
     id, `${name}-${id.slice(0, 8)}@teste.dev`, { display_name: name },
   ]);
   if (role === 'admin') await sys(`update profiles set role = 'admin' where id = $1`, [id]);
+  if (complete) await completeProfile(id);
   return id;
 }
 

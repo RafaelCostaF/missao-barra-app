@@ -51,3 +51,25 @@ export function toFix(l: DeviceLocation): Fix {
     recordedAt: new Date(l.timestamp).toISOString(),
   };
 }
+
+/** Comprimento da rota (sequência de pontos) em metros. */
+export function routeLength(route: Point[]): number {
+  let total = 0;
+  for (let i = 1; i < route.length; i++) total += haversine(route[i - 1], route[i]);
+  return total;
+}
+
+/** Ponto a `meters` do início, seguindo a rota; para no último ponto (não "passa da chegada"). */
+export function pointAlong(route: Point[], meters: number): Point {
+  let left = Math.max(0, meters);
+  for (let i = 1; i < route.length; i++) {
+    const seg = haversine(route[i - 1], route[i]);
+    if (left <= seg) {
+      const t = seg ? left / seg : 0;
+      const a = route[i - 1], b = route[i];
+      return { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+    }
+    left -= seg;
+  }
+  return route[route.length - 1];
+}

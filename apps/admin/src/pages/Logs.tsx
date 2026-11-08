@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toCsv, type LogFilters } from '@mb/core';
 import { api, download, run } from '../lib';
 
@@ -10,9 +10,11 @@ export function Logs() {
   const [rows, setRows] = useState<Row[]>([]);
   const set = (k: keyof LogFilters) => (e: { target: { value: string } }) => setF({ ...f, [k]: e.target.value || undefined });
 
+  const latest = useRef(0);
   const search = async () => {
+    const req = ++latest.current; // descarta respostas antigas (ex.: carga inicial chegando depois do filtro)
     const r = await run('admin.logs', () => api.logs({ ...f, from: f.from && new Date(f.from).toISOString(), to: f.to && new Date(f.to).toISOString() }));
-    if (r) setRows(r);
+    if (r && req === latest.current) setRows(r);
   };
   useEffect(() => void search(), []);
 

@@ -8,3 +8,7 @@ export * from './tracking';
 export * from './notifications';
 export * from './api';
 export * from './report';
+export * from './crowd';
+export * from './audit';
+export * from './people';
+export * from './validation';

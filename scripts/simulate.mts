@@ -8,7 +8,7 @@
  */
 import { parseArgs } from 'node:util';
 import { createClient } from '@supabase/supabase-js';
-import { createApi } from '@mb/core';
+import { createApi, pointAlong, routeLength } from '@mb/core';
 
 const { values: a } = parseArgs({
   options: {
@@ -31,8 +31,13 @@ if (error || !session) throw new Error(`Sessão não encontrada: ${error?.messag
 if (!session.is_test) throw new Error('Por segurança, só simula em sessões marcadas como teste (is_test).');
 if (session.status !== 'live') throw new Error(`A sessão precisa estar "ao vivo" (está "${session.status}").`);
 
-const START = { lat: -12.9570655, lng: -38.3536886 };
-const password = 'simulacao-missao-barra';
+// Caminha pela rota do evento (pontos de apoio em ordem de km) e para na chegada.
+const { data: cps } = await admin.from('checkpoints').select('lat, lng, km').eq('session_id', session.id).order('km');
+if (!cps || cps.length < 2) throw new Error('Cadastre o percurso (2+ pontos de apoio) antes de simular.');
+const route = cps.map((c) => ({ lat: c.lat, lng: c.lng }));
+const total = routeLength(route);
+const SPEEDUP = Number(process.env.SIM_SPEEDUP ?? 20); // acelera a caminhada (~1,4 m/s) para ver movimento no mapa
+const password = 'simulacao-missao-barra-2026';
 
 console.log(`Simulando ${n} participantes em "${session.name}" (${staleCount} perdem sinal, ${emergencies} emergência)…`);
 const sims = await Promise.all(Array.from({ length: n }, async (_, i) => {
@@ -40,22 +45,27 @@ const sims = await Promise.all(Array.from({ length: n }, async (_, i) => {
   await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: `Simulado ${i + 1}` } }).catch(() => undefined);
   const api = createApi(createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } }));
   await api.signIn(email, password);
+  // Conta fictícia: cadastro completo marcado direto (service role) para poder iniciar evento oficial.
+  await admin.from('profile_contacts').upsert({ user_id: await api.me(), phone: `+55719${String(i).padStart(8, '0')}`, phone_verified_at: new Date().toISOString(), photo_path: 'simulado', registration_number: `SIM-${i + 1}` });
   await api.joinEvent(session.id);
   await api.startTracking(session.id).catch(() => undefined); // já rastreando numa rodada anterior
-  return { api, pace: 1.0 + Math.random() * 0.8, offset: Math.random() * 200 };
+  return { api, pace: 1.0 + Math.random() * 0.8, walked: Math.random() * 200 };
 }));
 
 for (let r = 0; r < rounds; r++) {
   const t0 = Date.now();
   const results = await Promise.allSettled(sims.map(async (s, i) => {
     if (i < staleCount && r > rounds / 2) return; // perderam o sinal
-    const meters = s.offset + r * (every / 1000) * s.pace * 20; // 20× acelerado para ver movimento no mapa
+    if (s.walked >= total) return; // chegou
+    const step = Math.min((every / 1000) * s.pace * SPEEDUP, total - s.walked);
+    s.walked += step;
+    const p = pointAlong(route, s.walked);
     await s.api.pushPositions(session.id, [{
-      lat: START.lat - meters / 400_000 + (Math.random() - 0.5) / 50_000,
-      lng: START.lng - meters / 108_000,
+      lat: p.lat + (Math.random() - 0.5) / 100_000, // ruído de GPS (~5 m)
+      lng: p.lng + (Math.random() - 0.5) / 100_000,
       accuracy: 5 + Math.random() * 10,
       recordedAt: new Date().toISOString(),
-    }], every / 1000 * s.pace * 20);
+    }], step);
     if (r === Math.floor(rounds / 2) && i >= n - emergencies) await s.api.raiseAlert(session.id, 'emergency');
   }));
   const failed = results.filter((x) => x.status === 'rejected').length;

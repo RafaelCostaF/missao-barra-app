@@ -12,7 +12,7 @@ appId: br.missaobarra.app
 - takeScreenshot: .maestro/screenshots/01-login
 
 # Cadastro
-- tapOn: "CRIAR CONTA →"
+- tapOn: "CRIAR CONTA"
 - tapOn: "Seu nome"
 - inputText: "Participante Maestro"
 - tapOn: "E-mail"
@@ -20,7 +20,7 @@ appId: br.missaobarra.app
 - tapOn: "Senha"
 - inputText: "senha-forte-123"
 - hideKeyboard
-- tapOn: "CRIAR CONTA →"
+- tapOn: "CRIAR CONTA"
 - runFlow:
     when:
       visible: "Allow"
@@ -32,16 +32,16 @@ appId: br.missaobarra.app
     visible: "MISSÃO BARRA — ENSAIO DE CAMPO"
     timeout: 20000
 - takeScreenshot: .maestro/screenshots/02-eventos
-- tapOn: "ABRIR PERCURSO →"
+- tapOn: "ABRIR PERCURSO"
 - extendedWaitUntil:
-    visible: "ENTENDI, QUERO COMPARTILHAR →"
+    visible: "ENTENDI, QUERO COMPARTILHAR"
     timeout: 15000
 - takeScreenshot: .maestro/screenshots/03-consentimento
-- tapOn: "ENTENDI, QUERO COMPARTILHAR →"
+- tapOn: "ENTENDI, QUERO COMPARTILHAR"
 - setLocation:
     latitude: -12.9570655
     longitude: -38.3536886
-- tapOn: "INICIAR PERCURSO →"
+- tapOn: "INICIAR PERCURSO"
 
 # Permissões de localização (primeiro plano e, se o sistema oferecer, "sempre")
 - runFlow:
@@ -69,14 +69,14 @@ appId: br.missaobarra.app
     speed: 25
 - extendedWaitUntil:
     visible:
-      text: "Percorrido: .*"
+      text: "Percorrido"
     timeout: 30000
 - takeScreenshot: .maestro/screenshots/04-monitorando
 
 # Emergência
 - scrollUntilVisible:
-    element: "EMERGÊNCIA →"
-- tapOn: "EMERGÊNCIA →"
+    element: "EMERGÊNCIA"
+- tapOn: "EMERGÊNCIA"
 - extendedWaitUntil:
     visible: "Acionar EMERGÊNCIA?"
     timeout: 5000
@@ -85,8 +85,8 @@ appId: br.missaobarra.app
 
 # Finalizar
 - scrollUntilVisible:
-    element: "FINALIZAR PARTICIPAÇÃO →"
-- tapOn: "FINALIZAR PARTICIPAÇÃO →"
+    element: "FINALIZAR"
+- tapOn: "FINALIZAR"
 - tapOn: "Finalizar"
 - extendedWaitUntil:
     visible:

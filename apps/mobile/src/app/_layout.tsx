@@ -24,14 +24,14 @@ export default function RootLayout() {
   useEffect(() => {
     if (!auth) return void (logContext.pseudo_user = undefined);
     api.profile().then((p) => (logContext.pseudo_user = p.pseudo_id)).catch((e) => logger.error('auth.profile', e));
-  }, [auth?.user.id]);
+  }, [auth]);
 
   useEffect(() => {
     if (auth === undefined) return;
     const inLogin = segments[0] === 'login';
     if (!auth && !inLogin) router.replace('/login');
     if (auth && inLogin) router.replace('/');
-  }, [auth, segments]);
+  }, [auth, segments, router]);
 
   useNotices(auth?.user.id ?? null);
 

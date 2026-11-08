@@ -22,6 +22,7 @@ export function useLiveSession(id: string) {
   }, [id]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reload só altera estado após await (carga inicial)
     void reload();
     void api.checkpoints(id).then(setCheckpoints).catch(() => undefined);
     const ch = api.subscribe(`session:${id}`, ['participants', 'alerts'], () => {

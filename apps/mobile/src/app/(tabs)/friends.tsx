@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { FlatList, View } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { Body, Button, Input, Row, Screen, Title } from '@/components/ui';
+import { Body, Button, Empty, Input, Row, Screen, Title } from '@/components/ui';
 import { api, logger } from '@/lib/services';
 import { useFriends, type Person } from '@/hooks/useFriends';
 
@@ -18,7 +18,7 @@ export default function Friends() {
     <Screen>
       <View style={{ flexDirection: 'row', gap: 8 }}>
         <Input style={{ flex: 1 }} placeholder="Buscar pelo nome" value={q} onChangeText={setQ} />
-        <Button label="Buscar" onPress={async () => setResults(q.trim().length >= 2 ? (await api.searchPeople(q.trim())).map((p) => ({ id: p.id, name: p.display_name })) : [])} />
+        <Button icon="search" label="Buscar" onPress={async () => setResults(q.trim().length >= 2 ? (await api.searchPeople(q.trim())).map((p) => ({ id: p.id, name: p.display_name })) : [])} />
       </View>
       <FlatList
         data={[
@@ -29,10 +29,10 @@ export default function Friends() {
         ]}
         keyExtractor={(p) => `${p.kind}:${p.id}`}
         contentContainerStyle={{ gap: 8 }}
-        ListEmptyComponent={<Body muted>Busque amigos pelo nome para convidá-los às corridas.</Body>}
-        renderItem={({ item }) => (
-          <Row>
-            <Title>{item.name}</Title>
+        ListEmptyComponent={<Empty icon="search-outline" text="Busque amigos pelo nome para convidá-los às corridas." />}
+        renderItem={({ item, index }) => (
+          <Row index={index}>
+            <Title size={17}>{item.name}</Title>
             {item.kind === 'friend' && <Body muted>Amigo</Body>}
             {item.kind === 'outgoing' && <Body muted>Solicitação enviada</Body>}
             {item.kind === 'result' && <Button label="Adicionar" onPress={() => run('api.request_friend', () => api.requestFriend(item.id))} />}

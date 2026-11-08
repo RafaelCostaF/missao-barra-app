@@ -1,18 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { getSignalState, SESSION_ACTIONS, SIGNAL_LABEL, summarize, toCsv, type Alert, type Checkpoint, type LiveParticipant, type Session } from '@mb/core';
-import { api, download, fmtTime, run, supabase } from '../lib';
+import { analyzeCrowd, SESSION_ACTIONS, summarize, type Alert, type Checkpoint, type LiveParticipant, type Session } from '@mb/core';
+import { api, fmtTime, run, supabase } from '../lib';
 import { Map } from '../components/Map';
 import { RouteEditor } from '../components/RouteEditor';
+import { ALERT_LABEL } from '../components/AlertCenter';
+import { ReportTab } from '../components/ReportTab';
+import { PeopleTab } from '../components/PeopleTab';
 
-const ALERT_LABEL = { emergency: 'EMERGÊNCIA', help: 'Pedido de ajuda', signal_lost: 'Sinal perdido' };
+const TABS = { monitor: 'Monitoramento', participantes: 'Participantes', alertas: 'Alertas', relatorio: 'Relatório', percurso: 'Percurso' } as const;
+type Tab = keyof typeof TABS;
+const REASON = { stale: 'Sem sinal', off_route: 'Fora do percurso', behind: 'Retardatário' } as const;
 
-export function EventDetail({ id }: { id: string }) {
+export function EventDetail({ id, tab: initialTab }: { id: string; tab?: string }) {
   const [session, setSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<LiveParticipant[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const [checkpoints, setCheckpoints] = useState<Checkpoint[]>([]);
-  const [tab, setTab] = useState<'live' | 'route'>('live');
   const [now, setNow] = useState(Date.now());
+  const tab: Tab = initialTab && initialTab in TABS ? (initialTab as Tab) : 'monitor';
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const reload = useCallback(async () => {
@@ -38,10 +43,12 @@ export function EventDetail({ id }: { id: string }) {
     };
   }, [id, reload]);
 
-  if (!session) return <div className="card">Carregando…</div>;
+  if (!session) return <div className="card skeleton">Carregando…</div>;
   const stats = summarize(participants, alerts, now);
+  const crowd = analyzeCrowd(participants, checkpoints, now);
   const open = alerts.filter((a) => !a.resolved_at);
   const nameOf = (uid: string) => participants.find((p) => p.user_id === uid)?.display_name ?? '—';
+  const maxSeg = Math.max(1, ...crowd.segments.map((s) => s.count));
 
   async function setStatus(to: Session['status']) {
     if (to === 'ended' && !confirm('Encerrar o evento finaliza o rastreamento de todos. Continuar?')) return;
@@ -51,8 +58,11 @@ export function EventDetail({ id }: { id: string }) {
 
   return (
     <>
-      <div className="card row">
-        <h1 style={{ marginRight: 'auto' }}>{session.name}</h1>
+      <div className="row page-head">
+        <div style={{ marginRight: 'auto' }}>
+          <h1>{session.name}</h1>
+          <span className={`status-pill ${session.status}`}>{session.status === 'live' ? 'Ao vivo' : session.status}</span>
+        </div>
         {SESSION_ACTIONS[session.status].map((a) => (
           <button key={a.to} className={a.to === 'draft' ? 'secondary' : ''} onClick={() => setStatus(a.to)}>{a.label} →</button>
         ))}
@@ -66,58 +76,81 @@ export function EventDetail({ id }: { id: string }) {
         )}
       </div>
 
-      {open.map((a) => (
-        <div key={a.id} className={`alert ${a.type} row`}>
-          <span style={{ marginRight: 'auto' }}>
-            {ALERT_LABEL[a.type]} · {nameOf(a.user_id)} · {fmtTime(a.created_at)}
-            {a.lat != null ? ` · ${a.lat.toFixed(5)}, ${a.lng!.toFixed(5)}` : ' · sem posição'}
-          </span>
-          <button className="secondary" style={{ color: '#fff', borderColor: '#fff' }} onClick={() => run('admin.resolve_alert', () => api.resolveAlert(a.id)).then(reload)}>Resolvido</button>
-        </div>
-      ))}
+      <nav className="tabs">
+        {(Object.keys(TABS) as Tab[]).map((t) => (
+          <a key={t} href={`#/evento/${id}/${t}`} className={`tab ${tab === t ? 'active' : ''} ${t === 'alertas' && open.length ? 'blink' : ''}`}>
+            {TABS[t]}{t === 'alertas' && open.length ? ` (${open.length})` : ''}
+          </a>
+        ))}
+      </nav>
 
-      <div className="stats">
-        <div className="stat"><b>{stats.tracking}</b>Monitorando</div>
-        <div className="stat"><b>{stats.stale}</b>Sinal desatualizado</div>
-        <div className="stat"><b>{stats.finished}</b>Finalizados</div>
-        <div className="stat"><b>{stats.not_started}</b>Não iniciados</div>
-        <div className="stat"><b>{stats.openAlerts}</b>Alertas abertos</div>
-      </div>
-
-      <div className="row">
-        <button className={tab === 'live' ? '' : 'secondary'} onClick={() => setTab('live')}>Ao vivo</button>
-        <button className={tab === 'route' ? '' : 'secondary'} onClick={() => setTab('route')}>Percurso e apoio</button>
-      </div>
-
-      {tab === 'route' ? (
-        <RouteEditor sessionId={id} initial={checkpoints} onSaved={setCheckpoints} />
-      ) : (
-        <div className="grid2">
-          <Map checkpoints={checkpoints} participants={participants} alerts={alerts} now={now} />
-          <div className="card scroll">
-            <div className="row" style={{ justifyContent: 'space-between' }}>
-              <h3>Participantes ({stats.total})</h3>
-              <button className="secondary" onClick={() => download(`participantes-${id}.csv`, toCsv(participants as never))}>CSV</button>
+      {tab === 'monitor' && (
+        <div className="grid2 fade-in">
+          <Map checkpoints={checkpoints} participants={participants} alerts={open} now={now} />
+          <div className="side">
+            <div className="kpis">
+              <div className="kpi ok"><b>{stats.tracking}</b>Ativos</div>
+              <div className="kpi warn"><b>{stats.stale}</b>Sem sinal</div>
+              <div className="kpi"><b>{stats.finished}</b>Finalizados</div>
             </div>
-            <table>
-              <thead><tr><th>Nome</th><th>Estado</th><th>Últ. posição</th><th>km</th></tr></thead>
-              <tbody>
-                {[...participants].sort((a, b) => (a.last_at ?? '').localeCompare(b.last_at ?? '')).map((p) => {
-                  const s = getSignalState(p as never, now);
-                  return (
-                    <tr key={p.user_id}>
-                      <td>{p.display_name}</td>
-                      <td><span className={`badge ${s}`}>{SIGNAL_LABEL[s]}</span></td>
-                      <td>{fmtTime(p.last_at)}</td>
-                      <td>{(p.distance_m / 1000).toFixed(1)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+
+            <div className="card">
+              <h3>Onde está o grupo</h3>
+              {crowd.majority ? (
+                <p className="headline"><b>{Math.round(crowd.majority.share * 100)}%</b> entre {crowd.majority.label}</p>
+              ) : (
+                <p className="muted">{checkpoints.length < 2 ? 'Cadastre o percurso para ver a distribuição.' : 'Sem posições ativas.'}</p>
+              )}
+              {crowd.segments.map((s) => (
+                <div key={s.label} className="bar-row" title={`${s.count} participantes`}>
+                  <span>{s.label}</span>
+                  <div className="bar"><i style={{ width: `${(s.count / maxSeg) * 100}%` }} /></div>
+                  <b>{s.count}</b>
+                </div>
+              ))}
+            </div>
+
+            <div className="card">
+              <h3>Atenção</h3>
+              {!crowd.attention.length && <p className="muted">Ninguém fora do padrão.</p>}
+              {crowd.attention.map((a) => (
+                <div key={a.user_id} className={`attention ${a.reason}`}>
+                  <b>{a.name}</b><span>{REASON[a.reason]} · {a.detail}</span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
+
+      {tab === 'participantes' && <PeopleTab sessionId={id} participants={participants} alerts={alerts} checkpoints={checkpoints} now={now} onChanged={() => void reload()} />}
+
+      {tab === 'alertas' && (
+        <div className="card scroll fade-in">
+          <h3>Alertas ({open.length} abertos)</h3>
+          {!alerts.length && <p className="muted">Nenhum alerta neste evento.</p>}
+          <table>
+            <thead><tr><th>Tipo</th><th>Participante</th><th>Hora</th><th>Posição</th><th></th></tr></thead>
+            <tbody>
+              {[...alerts].sort((a, b) => Number(!!a.resolved_at) - Number(!!b.resolved_at)).map((a) => (
+                <tr key={a.id} className={a.resolved_at ? 'resolved' : ''}>
+                  <td><span className={`badge alert-${a.type}`}>{ALERT_LABEL[a.type]}</span></td>
+                  <td>{nameOf(a.user_id)}</td>
+                  <td>{fmtTime(a.created_at)}</td>
+                  <td>{a.lat != null ? `${a.lat.toFixed(5)}, ${a.lng!.toFixed(5)}` : '—'}</td>
+                  <td>{a.resolved_at ? <span className="muted">Resolvido {fmtTime(a.resolved_at)}</span> : (
+                    <button onClick={() => run('admin.resolve_alert', () => api.resolveAlert(a.id)).then(reload)}>Resolvido</button>
+                  )}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === 'relatorio' && <ReportTab sessionId={id} alerts={alerts} checkpoints={checkpoints} />}
+
+      {tab === 'percurso' && <RouteEditor sessionId={id} initial={checkpoints} onSaved={setCheckpoints} />}
     </>
   );
 }

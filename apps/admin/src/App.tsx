@@ -5,7 +5,8 @@ import { Login } from './pages/Login';
 import { Events } from './pages/Events';
 import { EventDetail } from './pages/EventDetail';
 import { Logs } from './pages/Logs';
-import { Notifications } from './components/Notifications';
+import { Staff } from './pages/Staff';
+import { AlertCenter } from './components/AlertCenter';
 
 /** Rotas por hash: #/eventos, #/evento/<id>, #/logs. Sem dependência de roteador. */
 function useHash() {
@@ -21,7 +22,7 @@ function useHash() {
 export function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [page, id] = useHash();
+  const [page, id, sub] = useHash();
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuth(data.session));
@@ -42,14 +43,15 @@ export function App() {
   return (
     <>
       <header>
-        <span className="brand">Missão Barra · Painel</span>
+        <span className="brand">MB<span className="full"> · Missão Barra</span></span>
         <a href="#/eventos">Eventos</a>
+        <a href="#/equipe">Equipe</a>
         <a href="#/logs">Logs</a>
+        <AlertCenter />
         <button className="secondary" style={{ color: 'var(--white)', borderColor: 'var(--white)' }} onClick={() => api.signOut()}>Sair</button>
       </header>
-      <Notifications />
       <main>
-        {page === 'evento' && id ? <EventDetail id={id} /> : page === 'logs' ? <Logs /> : <Events />}
+        {page === 'evento' && id ? <EventDetail key={id} id={id} tab={sub} /> : page === 'logs' ? <Logs /> : page === 'equipe' ? <Staff /> : <Events />}
       </main>
     </>
   );

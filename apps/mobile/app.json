@@ -44,6 +44,14 @@
           "isAndroidBackgroundLocationEnabled": true,
           "isAndroidForegroundServiceEnabled": true
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "A foto ajuda a equipe da Missão Barra a te identificar em caso de ajuda.",
+          "cameraPermission": "Tire uma foto para a equipe da Missão Barra te identificar em caso de ajuda.",
+          "microphonePermission": false
+        }
       ]
     ],
     "extra": {

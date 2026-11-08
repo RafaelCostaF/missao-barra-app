@@ -16,7 +16,9 @@ async function user(name: string) {
   clients.push(c);
   const api = createApi(c);
   await api.signUp(`${name}-${run}@teste.dev`, 'senha-forte-123', name);
-  return { c, api, id: await api.me() };
+  const id = await api.me();
+  await db.query(`insert into profile_contacts (user_id, phone, phone_verified_at, photo_path) values ($1::uuid, '+5571999990000', now(), $1::text || '/f.jpg')`, [id]);
+  return { c, api, id };
 }
 
 /** Assina como o app faz e devolve uma função que espera o próximo aviso. */

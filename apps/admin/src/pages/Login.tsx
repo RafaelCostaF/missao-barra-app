@@ -23,7 +23,7 @@ export function Login() {
         <h1>Painel Missão Barra</h1>
         <input type="email" placeholder="E-mail" value={email} onChange={(e) => setEmail(e.target.value)} required />
         <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        {error && <div className="alert">{error}</div>}
+        {error && <div className="form-error" role="alert">{error}</div>}
         <button>Entrar →</button>
       </form>
     </main>

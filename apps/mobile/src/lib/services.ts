@@ -3,6 +3,7 @@ import 'react-native-url-polyfill/auto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
+import * as Battery from 'expo-battery';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 import { createApi, createLogger, createPositionQueue, createTracker } from '@mb/core';
@@ -31,7 +32,13 @@ export const logger = createLogger({
   }),
 });
 
-export const queue = createPositionQueue(AsyncStorage, api.pushPositions, logger);
+/** Bateria em % (null se o aparelho não informa): a organização vê quem pode ficar sem sinal. */
+async function batteryPct() {
+  const level = await Battery.getBatteryLevelAsync().catch(() => -1);
+  return level < 0 ? null : Math.round(level * 100);
+}
+
+export const queue = createPositionQueue(AsyncStorage, async (s, f, d) => api.pushPositions(s, f, d, await batteryPct()), logger);
 export const tracker = createTracker({
   location: expoLocation,
   api: { startTracking: api.startTracking, finish: api.finish },

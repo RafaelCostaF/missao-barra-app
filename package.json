@@ -15,8 +15,9 @@
     "dev:mobile": "npm start -w @mb/mobile",
     "simulate": "tsx scripts/simulate.mts",
     "stack:local": "scripts/test-db.sh up && tsx supabase/tests/serve-gateway.ts",
-    "test:realtime": "REALTIME=1 SUPABASE_ANON_KEY=$(npx supabase status -o json | node -pe 'JSON.parse(require(\"fs\").readFileSync(0)).ANON_KEY') npm test -w @mb/db-tests -- realtime",
-    "demo": "tsx scripts/demo.mts"
+    "test:realtime": "REALTIME=1 SUPABASE_ANON_KEY=$(npx supabase@2.121.0 status -o json | node -pe 'JSON.parse(require(\"fs\").readFileSync(0)).ANON_KEY') npm test -w @mb/db-tests -- realtime signup-flow",
+    "demo": "tsx scripts/demo.mts",
+    "create-admin": "tsx scripts/create-admin.mts"
   },
   "devDependencies": {
     "tsx": "^4.23.15",

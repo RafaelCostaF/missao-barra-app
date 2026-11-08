@@ -3,7 +3,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createClient } from '@supabase/supabase-js';
 import { createApi, createLogger, createPositionQueue, createTracker, memoryStore, summarize, type Api, type Fix } from '@mb/core';
 import { anonKey, startGateway } from './gateway';
-import { pool, sys } from './helpers';
+import { completeProfile, pool, sys } from './helpers';
 
 let gw: Awaited<ReturnType<typeof startGateway>>;
 const run = Date.now().toString(36);
@@ -50,7 +50,10 @@ const id = async (a: Api) => a.me();
 beforeAll(async () => {
   gw = await startGateway();
   [admin, ana, bia] = [device('admin'), device('ana'), device('bia')];
-  for (const d of [admin, ana, bia]) await d.signUp(); // cadastro real no GoTrue (autoconfirm)
+  for (const d of [admin, ana, bia]) {
+    await d.signUp(); // cadastro real no GoTrue (autoconfirm)
+    await completeProfile(await d.api.me());
+  }
   await sys(`update profiles set role = 'admin' where id = $1`, [await id(admin.api)]);
 });
 afterAll(async () => {
