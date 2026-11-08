@@ -1,3 +1,4 @@
+import { kmBR } from '@/lib/fmt';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -109,7 +110,7 @@ export default function PersonProfile() {
           {!history.length && <Body muted small>Nenhuma participação ainda.</Body>}
           {history.map((h) => (
             <ListItem key={h.session_id} title={h.name}
-              subtitle={`${fmtDate(h.starts_at)} · ${PART[h.status] ?? h.status} · ${(h.distance_m / 1000).toFixed(1)} km · evento ${STATUS_LABEL[h.session_status].toLowerCase()}${h.is_test ? ' · teste' : ''}`}
+              subtitle={`${fmtDate(h.starts_at)} · ${PART[h.status] ?? h.status} · ${kmBR(h.distance_m)} km · evento ${STATUS_LABEL[h.session_status].toLowerCase()}${h.is_test ? ' · teste' : ''}`}
               onPress={h.kind === 'official' ? () => router.push(`/admin/participant?session=${h.session_id}&user=${p.id}`) : undefined} />
           ))}
         </Card>

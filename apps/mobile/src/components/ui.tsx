@@ -183,7 +183,7 @@ export function Stat({ label, value }: { label: string; value: string }) {
   return (
     <View style={s.stat}>
       <Text style={s.statValue} numberOfLines={1} adjustsFontSizeToFit>{value}</Text>
-      <Text style={s.statLabel}>{label}</Text>
+      <Text style={s.statLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{label}</Text>
     </View>
   );
 }

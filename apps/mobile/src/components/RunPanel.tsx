@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { about, dur } from '@/lib/fmt';
 import { LiveMap } from '@/components/LiveMap';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
@@ -51,6 +52,8 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now, path }
   const rank = racePosition(me.user_id, participants);
   const heroPace = live.currentPaceS ?? avgPace;
   const [showMap, setShowMap] = useState(true);
+  // Mapa proporcional à tela: em celular pequeno as métricas continuam visíveis sem rolar.
+  const mapH = Math.round(Math.min(340, Math.max(190, useWindowDimensions().height * 0.3)));
   // Caminho à frente: da posição até os próximos pontos (fora do percurso: tracejado até o mais perto).
   const route = [...checkpoints].sort((a, b) => a.km - b.km);
   const target = next ? route.find((c) => c.name === next.name && c.km === next.km) : null;
@@ -79,12 +82,17 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now, path }
   return (
     <View style={{ gap: 10 }}>
       {/* Mapa de quem está correndo: segue você, mostra o caminho à frente e quem está perto. */}
-      <Pressable onPress={() => setShowMap((v) => !v)} style={st.mapToggle} accessibilityRole="button" accessibilityState={{ expanded: showMap }}>
-        <Ionicons name={showMap ? 'chevron-up' : 'map-outline'} size={15} color={c.charcoal} />
-        <Text style={st.mapToggleText}>{showMap ? 'Esconder mapa' : 'Mostrar mapa'}</Text>
-      </Pressable>
+      {!showMap && (
+        <Pressable onPress={() => setShowMap(true)} style={st.mapToggle} accessibilityRole="button" accessibilityLabel="Mostrar mapa">
+          <Ionicons name="map-outline" size={15} color={c.charcoal} />
+          <Text style={st.mapToggleText}>Mostrar mapa</Text>
+        </Pressable>
+      )}
       {showMap && (
-        <View style={st.map}>
+        <View style={[st.map, { height: mapH }]}>
+          <Pressable onPress={() => setShowMap(false)} style={st.mapHide} accessibilityRole="button" accessibilityLabel="Esconder mapa" hitSlop={8}>
+            <Ionicons name="chevron-up" size={18} color={c.charcoal} />
+          </Pressable>
           <LiveMap participants={participants} checkpoints={checkpoints} now={now} path={path}
             runner={{
               me: pos, ahead, aheadStraight: !where.onRoute,
@@ -93,7 +101,7 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now, path }
                   <Text style={st.chipPace}>{fmtPace(heroPace)}<Text style={st.chipUnit}> /km</Text></Text>
                   {next && (
                     <Text style={st.chipNext} numberOfLines={1}>
-                      {next.name} · {km(next.remainingM)} km{next.etaS != null ? ` · ~${fmtClock(next.etaS)}` : ''}
+                      {next.name} · {km(next.remainingM)} km{next.etaS != null ? ` · ${about(next.etaS)}` : ''}
                     </Text>
                   )}
                 </View>
@@ -112,8 +120,8 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now, path }
           </View>
           <View style={st.grid}>
             <Metric dark label="Velocidade" value={live.speedKmh ? live.speedKmh.toFixed(1).replace('.', ',') : '—'} unit="km/h" />
-            <Metric dark label="Em movimento" value={fmtClock(live.movingS || null)} />
-            <Metric dark label="Pace em movimento" value={fmtPace(live.movingPaceS)} unit="/km" />
+            <Metric dark label="Tempo ativo" value={fmtClock(live.movingS || null)} />
+            <Metric dark label="Pace ativo" value={fmtPace(live.movingPaceS)} unit="/km" />
           </View>
           {!heroPace && <Text style={st.heroSub}>Você está parado: o pace aparece depois de ~30 s andando ou correndo.</Text>}
           {!live.currentPaceS && heroPace != null && <Text style={st.heroSub}>Mostrando o pace médio; o pace atual aparece após ~30 s em movimento.</Text>}
@@ -125,7 +133,7 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now, path }
           <View style={st.card}>
             {next && <EtaRow icon="flag-outline" title={`${next.straight ? 'Ponto mais perto' : 'Próximo ponto'} · ${next.name}`} eta={next} />}
             {finish && finish.name !== next?.name && <EtaRow icon="trophy-outline" title={`Chegada · ${finish.name}`} eta={finish} total={finish.etaS != null ? elapsedS + finish.etaS : null} />}
-            {next && finish?.name === next.name && finish.etaS != null && <Text style={st.muted}>Tempo total previsto: {fmtClock(elapsedS + finish.etaS)}</Text>}
+            {next && finish?.name === next.name && finish.etaS != null && <Text style={st.muted}>Tempo total previsto: {dur(elapsedS + finish.etaS)}</Text>}
             <Text style={st.muted}>
               {where.onRoute
                 ? `Você está no km ${kmNow!.toFixed(1).replace('.', ',')} do percurso`
@@ -143,8 +151,8 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now, path }
 function Metric({ label, value, unit, dark }: { label: string; value: string; unit?: string; dark?: boolean }) {
   return (
     <View style={{ flex: 1 }}>
-      <Text style={[st.metricValue, dark && { color: c.white }]} numberOfLines={1} adjustsFontSizeToFit>{value}{unit ? <Text style={st.metricUnit}> {unit}</Text> : null}</Text>
-      <Text style={[st.metricLabel, dark && { color: c.sand }]}>{label}</Text>
+      <Text style={[st.metricValue, dark && { color: c.white }]} numberOfLines={1} adjustsFontSizeToFit>{value}{unit && value !== '—' ? <Text style={st.metricUnit}> {unit}</Text> : null}</Text>
+      <Text style={[st.metricLabel, dark && { color: c.sand }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.8}>{label}</Text>
     </View>
   );
 }
@@ -156,10 +164,9 @@ function EtaRow({ icon, title, eta, total }: { icon: keyof typeof Ionicons.glyph
         <Ionicons name={icon} size={18} color={c.orangeDark} />
         <Text style={st.title} numberOfLines={1}>{title}</Text>
       </View>
-      <Text style={st.etaBig}>
-        {eta.straight ? 'a ' : 'faltam '}{km(eta.remainingM)} km{eta.etaS != null ? <Text style={st.etaSoft}> · ~{fmtClock(eta.etaS)} · chegada {hhmm(eta.at)}</Text> : null}
-      </Text>
-      {total != null && <Text style={st.muted}>Tempo total previsto: {fmtClock(total)}</Text>}
+      <Text style={st.etaBig}><Text style={st.etaSoft}>{eta.straight ? 'a ' : 'faltam '}</Text>{km(eta.remainingM)} km</Text>
+      {eta.etaS != null && <Text style={st.etaSoft}>{about(eta.etaS)} · chegada às {hhmm(eta.at)}</Text>}
+      {total != null && <Text style={st.muted}>Tempo total previsto: {dur(total)}</Text>}
     </View>
   );
 }
@@ -183,7 +190,8 @@ function Splits({ splits, light }: { splits: number[]; light?: boolean }) {
 }
 
 const st = StyleSheet.create({
-  map: { height: 340, borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: c.line },
+  mapHide: { position: 'absolute', top: 10, left: 10, zIndex: 2, width: 36, height: 36, borderRadius: 18, backgroundColor: c.white, alignItems: 'center', justifyContent: 'center', ...shadow },
+  map: { borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: c.line },
   mapToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', paddingVertical: 4, paddingHorizontal: 6 },
   mapToggleText: { fontFamily: font.bold, fontSize: 12, color: c.charcoal, textTransform: 'uppercase', letterSpacing: 0.5 },
   chip: { flexDirection: 'row', alignItems: 'baseline', gap: 10, backgroundColor: 'rgba(29,30,34,0.88)', borderRadius: radius, paddingHorizontal: 12, paddingVertical: 8 },

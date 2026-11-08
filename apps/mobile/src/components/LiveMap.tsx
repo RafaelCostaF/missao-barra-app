@@ -1,3 +1,4 @@
+import { kmBR } from '@/lib/fmt';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
@@ -112,7 +113,7 @@ export function LiveMap({ participants, checkpoints, now, focus, highlight, onSe
               ref={(m) => { if (m) markers.current.set(p.user_id, m); else markers.current.delete(p.user_id); }}
               coordinate={{ latitude: p.last_lat!, longitude: p.last_lng! }}
               title={p.display_name}
-              description={`${SIGNAL_LABEL[state]} · ${(p.distance_m / 1000).toFixed(1)} km · ${p.last_at ? new Date(p.last_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}${onSelect ? ' · toque para abrir' : ''}`}
+              description={`${SIGNAL_LABEL[state]} · ${kmBR(p.distance_m)} km · ${p.last_at ? new Date(p.last_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'}${onSelect ? ' · toque para abrir' : ''}`}
               pinColor={focus === p.user_id || highlight?.has(p.user_id) ? c.orange : signalColor[state]}
               opacity={dim ? 0.35 : state === 'stale' ? 0.6 : 1}
               onCalloutPress={onSelect ? () => onSelect(p.user_id) : undefined}

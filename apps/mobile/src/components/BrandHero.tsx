@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, Image, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, Image, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import type { Session } from '@mb/core';
 import { c, font, radius } from '@/theme';
 import logo from '@mb/ui-tokens/icons/icon-512.png';
@@ -18,7 +18,10 @@ export function countdown(next: Pick<Session, 'starts_at' | 'status'> | undefine
 
 /** Abertura do app: farol com luz girando, nome e lema. */
 /** `compact`: versão menor para o login (teclado aberto). */
-export function BrandHero({ next, compact }: { next?: Session; compact?: boolean }) {
+export function BrandHero({ next, compact: forced }: { next?: Session; compact?: boolean }) {
+  // Celular pequeno (iPhone SE/mini): versão menor para os eventos aparecerem sem rolar.
+  const { height } = useWindowDimensions();
+  const compact = forced || height < 740;
   const spin = useState(() => new Animated.Value(0))[0];
   const enter = useState(() => new Animated.Value(0))[0];
   useEffect(() => {
@@ -31,8 +34,8 @@ export function BrandHero({ next, compact }: { next?: Session; compact?: boolean
   const when = countdown(next);
 
   return (
-    <Animated.View style={[st.hero, { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
-      <View style={st.logoWrap}>
+    <Animated.View style={[st.hero, compact && { padding: 18, paddingTop: 20 }, { opacity: enter, transform: [{ translateY: enter.interpolate({ inputRange: [0, 1], outputRange: [12, 0] }) }] }]}>
+      <View style={[st.logoWrap, compact && { width: 60, height: 60, marginBottom: 10 }]}>
         {/* Feixe do farol: dois cones girando atrás do ícone. */}
         <Animated.View style={[st.beam, { transform: [{ rotate }] }]} pointerEvents="none">
           <View style={st.cone} />

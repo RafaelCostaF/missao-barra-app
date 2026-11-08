@@ -1,3 +1,4 @@
+import { kmBR, plural } from '@/lib/fmt';
 import { useCallback, useEffect, useState } from 'react';
 import { Image, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -92,7 +93,7 @@ export default function Participant() {
 
         <Card title="Agora">
           <Body small>{SIGNAL_LABEL[s]} · última posição {hhmm(p.last_at)} ({ago(p.last_at, now)})</Body>
-          <Body small>{(p.distance_m / 1000).toFixed(1)} km · {report?.passages.length ?? 0} ponto(s) de apoio</Body>
+          <Body small>{kmBR(p.distance_m)} km · {plural(report?.passages.length ?? 0, 'ponto de apoio', 'pontos de apoio')}</Body>
           <Body small>Bateria: <Text style={p.battery != null && p.battery <= LOW_BATTERY ? { color: c.danger, fontFamily: font.bold } : undefined}>{p.battery != null ? `${p.battery}%` : 'sem informação'}</Text></Body>
           <View style={{ flexDirection: 'row', gap: 8, flexWrap: 'wrap' }}>
             {p.last_lat != null && <SmallButton icon="map-outline" label="Ver no mapa do evento" tone="primary" onPress={() => router.push(`/admin/event/${sessionId}?tab=monitor&focus=${user}`)} />}

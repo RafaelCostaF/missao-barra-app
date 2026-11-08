@@ -23,10 +23,12 @@ export default function AdminChat() {
     <Screen>
       <Stack.Screen options={{ title: name }} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={100} style={{ flex: 1, gap: 8 }}>
-        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SmallButton icon="person-outline" label="Ver perfil" onPress={() => router.push(`/admin/participant?session=${session}&user=${user}`)} />
-          {open && <SmallButton icon="checkmark-done-outline" label="Encerrar atendimento" tone="primary" onPress={close} />}
-          {open && <Text style={{ fontFamily: font.bold, fontSize: 12, color: open === 'emergency' ? c.danger : c.warn }}>{open === 'emergency' ? 'EMERGÊNCIA ABERTA' : 'AJUDA ABERTA'}</Text>}
+        <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center' }}>
+          <Text style={{ flex: 1, fontFamily: font.bold, fontSize: 12.5, color: open === 'emergency' ? c.danger : open ? c.warn : c.inkSoft }} numberOfLines={2}>
+            {open === 'emergency' ? 'Emergência aberta' : open ? 'Ajuda aberta' : 'Sem atendimento aberto'}
+          </Text>
+          <SmallButton icon="person-outline" label="Perfil" a11y="Ver perfil e contato" onPress={() => router.push(`/admin/participant?session=${session}&user=${user}`)} />
+          {open && <SmallButton icon="checkmark-done-outline" label="Encerrar" a11y="Encerrar atendimento" tone="primary" onPress={close} />}
         </View>
         {me ? <HelpChat sessionId={session} userId={user} me={me} asOrg name={name === 'Atendimento' ? undefined : name} /> : null}
       </KeyboardAvoidingView>

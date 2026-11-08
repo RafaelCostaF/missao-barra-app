@@ -20,7 +20,7 @@ export default function TabsLayout() {
       <Tabs.Screen name="index" options={{ title: 'Início', headerShown: false, tabBarIcon: ({ color, size }) => <Ionicons name="flag-outline" color={String(color)} size={size} /> }} />
       <Tabs.Screen name="races" options={{ title: 'Corridas', tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" color={String(color)} size={size} /> }} />
       <Tabs.Screen name="friends" options={{ title: 'Amigos', tabBarIcon: ({ color, size }) => <Ionicons name="person-add-outline" color={String(color)} size={size} /> }} />
-      <Tabs.Screen name="admin" options={{ title: 'Organização', href: admin ? undefined : null, tabBarIcon: ({ color, size }) => <Ionicons name="shield-checkmark-outline" color={String(color)} size={size} /> }} />
+      <Tabs.Screen name="admin" options={{ title: 'Gestão', href: admin ? undefined : null, tabBarIcon: ({ color, size }) => <Ionicons name="shield-checkmark-outline" color={String(color)} size={size} /> }} />
       <Tabs.Screen name="profile" options={{ title: 'Perfil', tabBarIcon: ({ color, size }) => <Ionicons name="person-circle-outline" color={String(color)} size={size} /> }} />
     </Tabs>
   );

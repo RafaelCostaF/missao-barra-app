@@ -19,8 +19,10 @@ export default function Events() {
     setLoading(true);
     try {
       const [evs, ct, mine] = await Promise.all([api.publishedEvents(), api.myContact(), api.mySessions().catch(() => [])]);
-      setEvents(evs);
-      setMyStatus(new Map((mine as { id: string; participants: { status: string }[] }[]).map((m) => [m.id, m.participants[0]?.status])));
+      const my = new Map((mine as { id: string; participants: { status: string }[] }[]).map((m) => [m.id, m.participants[0]?.status]));
+      // O evento em que estou correndo vem primeiro (em celular pequeno, sem rolar).
+      setEvents([...evs].sort((a, b) => Number(my.get(b.id) === 'tracking') - Number(my.get(a.id) === 'tracking')));
+      setMyStatus(my);
       setMissing(profileMissing(ct));
     } catch (e) {
       void logger.error('api.events', e);

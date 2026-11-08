@@ -1,3 +1,4 @@
+import { plural } from '@/lib/fmt';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FlatList, RefreshControl, Text, View } from 'react-native';
 import { Body, Input, Screen } from '@/components/ui';
@@ -63,7 +64,7 @@ export default function Logs() {
               <View style={{ flex: 1 }}><SmallButton icon="funnel-outline" label="Filtrar" tone="primary" onPress={() => void search()} /></View>
               <View style={{ flex: 1 }}><SmallButton icon="share-outline" label="CSV" onPress={() => shareCsv('Logs', rows)} /></View>
             </View>
-            <Body muted small>{rows.length} registro(s){rows.length === 300 ? ' (máx. no app; use o painel para mais)' : ''}</Body>
+            <Body muted small>{plural(rows.length, 'registro', 'registros')}{rows.length === 300 ? ' (máx. no app; use o painel para mais)' : ''}</Body>
           </View>
         }
         ListEmptyComponent={loading ? undefined : <Body muted small>Nenhum log para os filtros.</Body>}

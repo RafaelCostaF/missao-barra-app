@@ -1,3 +1,4 @@
+import { plural } from '@/lib/fmt';
 import { useEffect, useState } from 'react';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
@@ -54,7 +55,7 @@ export function RouteEditor({ sessionId, initial, onSaved }: { sessionId: string
       await onSaved();
     }
     setBusy(false);
-    if (saved) Alert.alert('Percurso salvo', streets ? `${sorted.length} ponto(s), desenhado pelas ruas.` : `${sorted.length} ponto(s). O desenho pelas ruas falhou e ficou em linha reta; tente salvar de novo.`);
+    if (saved) Alert.alert('Percurso salvo', streets ? `${plural(sorted.length, 'ponto', 'pontos')}, desenhado pelas ruas.` : `${plural(sorted.length, 'ponto', 'pontos')}. O desenho pelas ruas falhou e ficou em linha reta; tente salvar de novo.`);
   }
 
   const first = cps[0];

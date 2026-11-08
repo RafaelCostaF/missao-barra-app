@@ -71,7 +71,7 @@ export function HelpChat({ sessionId, userId, me, asOrg, compact, name }: {
           );
         })}
       </ScrollView>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6, paddingVertical: 4 }} keyboardShouldPersistTaps="handled">
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 6, paddingVertical: 4, alignItems: 'center' }} keyboardShouldPersistTaps="handled">
         {quick.map((q) => (
           <Pressable key={q} onPress={() => void send(q)} style={st.quick} accessibilityRole="button" accessibilityLabel={`Enviar: ${q}`}>
             <Text style={st.quickText}>{q}</Text>

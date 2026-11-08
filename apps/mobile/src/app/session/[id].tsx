@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -108,9 +108,9 @@ export default function SessionScreen() {
       {/* Cabeçalho: "Percurso" com o nome do evento como subtítulo; o selo de sinal explica o monitoramento. */}
       <Stack.Screen options={{
         headerTitle: () => (
-          <View style={{ alignItems: 'center', maxWidth: 230 }}>
+          <View style={{ alignItems: Platform.OS === 'ios' ? 'center' : 'flex-start', maxWidth: 240 }}>
             <Text style={st.hTitle}>Percurso</Text>
-            <Text style={st.hSub} numberOfLines={1}>{session.name}</Text>
+            <Text style={[st.hSub, { textAlign: Platform.OS === 'ios' ? 'center' : 'left' }]} numberOfLines={1}>{session.name}</Text>
           </View>
         ),
         headerRight: () => (mine ? <StatusDot state={signal} who={official ? 'a organização' : 'quem está nesta corrida com você'} /> : null),
@@ -139,9 +139,10 @@ export default function SessionScreen() {
 
         {tracking && !backgroundSupported && <KeepAwake />}
         {trackerState === 'finished' && mine?.status === 'finished' && <Notice icon="checkmark-circle-outline" tone="ok" text="Participação finalizada. Sua localização não está mais sendo compartilhada." />}
-        {openAlerts.filter((a) => a.user_id !== me).map((a) => (
+        {/* Só pedidos de ajuda/emergência de outras pessoas ("sem sinal" não é pedido de ajuda). */}
+        {openAlerts.filter((a) => a.user_id !== me && (a.type === 'help' || a.type === 'emergency')).map((a) => (
           <Notice key={a.id} icon="alert-circle-outline" tone="danger"
-            text={`${participants.find((p) => p.user_id === a.user_id)?.display_name ?? 'Alguém'} pediu ajuda às ${new Date(a.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`} />
+            text={`${participants.find((p) => p.user_id === a.user_id)?.display_name ?? 'Alguém'} ${a.type === 'emergency' ? 'acionou emergência' : 'pediu ajuda'} às ${new Date(a.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`} />
         ))}
         {!official && others.length > 0 && <Body muted small>Na corrida: {others.map((o) => o.display_name).join(', ')}</Body>}
 

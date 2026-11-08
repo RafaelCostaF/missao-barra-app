@@ -1,3 +1,4 @@
+import { plural } from '@/lib/fmt';
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
@@ -69,7 +70,7 @@ export default function People() {
         ListEmptyComponent={loading ? undefined : <Body muted small>Ninguém com esses filtros.</Body>}
         renderItem={({ item: p }) => (
           <ListItem title={p.display_name}
-            subtitle={`${p.events_started} evento(s) · ${p.races_started} corrida(s) · ${Number(p.total_km).toFixed(0)} km${p.calls ? ` · ${p.calls} chamado(s)` : ''}${p.strava_url ? (p.strava_km_30d != null ? ` · Strava ${Number(p.strava_km_30d).toFixed(0)} km/30d` : ' · Strava') : ''}`}
+            subtitle={`${plural(p.events_started, 'evento', 'eventos')} · ${plural(p.races_started, 'corrida', 'corridas')} · ${Number(p.total_km).toFixed(0)} km${p.calls ? ` · ${plural(p.calls, 'chamado', 'chamados')}` : ''}${p.strava_url ? (p.strava_km_30d != null ? ` · Strava ${Number(p.strava_km_30d).toFixed(0)} km/30d` : ' · Strava') : ''}`}
             right={p.role === 'admin' ? <Pill text="org" color={c.charcoal} /> : !isProfileComplete(p) ? <Pill text="incompleto" color={c.warn} /> : undefined}
             onPress={() => router.push(`/admin/person/${p.id}`)} />
         )}

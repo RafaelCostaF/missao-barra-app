@@ -80,7 +80,7 @@ export function Kpis({ items }: { items: { label: string; value: string | number
       {items.map((i) => (
         <View key={i.label} style={k.kpi}>
           <Text style={[k.kpiValue, i.tone && { color: { ok: c.ok, warn: c.warn, danger: c.danger }[i.tone] }]} numberOfLines={1} adjustsFontSizeToFit>{i.value}</Text>
-          <Text style={k.kpiLabel}>{i.label}</Text>
+          <Text style={k.kpiLabel} numberOfLines={2} adjustsFontSizeToFit minimumFontScale={0.8}>{i.label}</Text>
         </View>
       ))}
     </View>
@@ -140,7 +140,7 @@ export const k = StyleSheet.create({
   kpis: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   kpi: { flexGrow: 1, flexBasis: '30%', backgroundColor: c.surface, borderRadius: radius, padding: 10, borderWidth: 1, borderColor: c.line },
   kpiValue: { fontFamily: font.display, fontSize: 22, color: c.charcoal },
-  kpiLabel: { fontFamily: font.body, fontSize: 10.5, color: c.inkSoft, textTransform: 'uppercase', letterSpacing: 0.5 },
+  kpiLabel: { fontFamily: font.body, fontSize: 10.5, color: c.inkSoft, textTransform: 'uppercase', letterSpacing: 0.2 },
   barRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   barLabel: { flex: 1.4, fontFamily: font.body, fontSize: 12.5, color: c.charcoal },
   bar: { flex: 1, height: 8, borderRadius: 4, backgroundColor: c.sand, overflow: 'hidden' },

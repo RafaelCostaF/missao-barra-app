@@ -1,3 +1,4 @@
+import { kmBR, plural } from '@/lib/fmt';
 import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
@@ -173,12 +174,12 @@ export function EventPeople({ sessionId, participants, checkpoints, alerts, now,
       renderItem={({ item: p }) => {
         const s = getSignalState(p as never, now);
         const tags = [
-          waiting.get(p.user_id) && `💬 ${waiting.get(p.user_id)} mensagem(ns) sem resposta`, p.flags.has('open_call') && 'Chamado aberto', p.flags.has('off_route') && 'Fora do percurso', p.flags.has('behind') && 'Retardatário',
+          waiting.get(p.user_id) && `💬 ${plural(waiting.get(p.user_id)!, 'mensagem', 'mensagens')} sem resposta`, p.flags.has('open_call') && 'Chamado aberto', p.flags.has('off_route') && 'Fora do percurso', p.flags.has('behind') && 'Retardatário',
           p.flags.has('low_battery') && `Bateria ${p.battery}%`, p.flags.has('not_completed') && 'Não concluiu',
         ].filter(Boolean).join(' · ');
         return (
           <ListItem accent={p.flags.has('open_call') ? c.danger : signalColor[s]} title={p.display_name}
-            subtitle={`${SIGNAL_LABEL[s]} · ${ago(p.last_at, now)} · ${(p.distance_m / 1000).toFixed(1)} km · ${p.passed}/${checkpoints.length} pontos${tags ? `\n${tags}` : ''}`}
+            subtitle={`${SIGNAL_LABEL[s]} · ${ago(p.last_at, now)} · ${kmBR(p.distance_m)} km · ${p.passed}/${checkpoints.length} pontos${tags ? `\n${tags}` : ''}`}
             onPress={() => openPerson(sessionId, p.user_id)} />
         );
       }}
@@ -262,7 +263,7 @@ export function EventReport({ sessionId, alerts, checkpoints }: Live & { session
         { label: 'Participantes', value: k.participants },
         { label: 'Concluíram', value: `${Math.round(k.completionRate * 100)}%`, tone: 'ok' },
         { label: 'Tempo mediano', value: fmtDuration(k.medianFinishS) },
-        { label: `Chamados · ${k.callsPerPerson.toFixed(2)}/pessoa`, value: k.calls, tone: 'warn' },
+        { label: `Chamados · ${k.callsPerPerson.toFixed(2).replace('.', ',')}/pessoa`, value: k.calls, tone: 'warn' },
         { label: 'Resposta mediana', value: fmtDuration(k.medianResolutionS) },
       ]} />
       <Card title="Avanço por ponto de apoio">
@@ -300,8 +301,8 @@ export function EventReport({ sessionId, alerts, checkpoints }: Live & { session
         {!rows.length && <Body muted small>Ninguém iniciou o percurso ainda.</Body>}
         {rows.map((r) => (
           <ListItem key={r.user_id} title={r.display_name}
-            subtitle={`${r.status === 'tracking' ? 'Em percurso' : 'Finalizou'} · ${fmtDuration(r.duration_s)} · ${(r.distance_m / 1000).toFixed(1)} km · ${pace(r.duration_s, r.distance_m)} · ${r.passages.length}/${checkpoints.length} pontos`}
-            right={r.alerts_help + r.alerts_emergency ? <Pill text={`${r.alerts_help + r.alerts_emergency} chamado(s)`} color={c.warn} /> : undefined}
+            subtitle={`${r.status === 'tracking' ? 'Em percurso' : 'Finalizou'} · ${fmtDuration(r.duration_s)} · ${kmBR(r.distance_m)} km · ${pace(r.duration_s, r.distance_m)} · ${r.passages.length}/${checkpoints.length} pontos`}
+            right={r.alerts_help + r.alerts_emergency ? <Pill text={plural(r.alerts_help + r.alerts_emergency, 'chamado', 'chamados')} color={c.warn} /> : undefined}
             onPress={() => openPerson(sessionId, r.user_id)} />
         ))}
       </Card>

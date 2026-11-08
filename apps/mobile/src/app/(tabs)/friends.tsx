@@ -24,7 +24,7 @@ export default function Friends() {
   return (
     <Screen>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        <Input style={{ flex: 1 }} placeholder="Buscar pelo nome" value={q} onChangeText={setQ} />
+        <Input style={{ flex: 1, minWidth: 0 }} placeholder="Buscar pelo nome" value={q} onChangeText={setQ} />
         <Button icon="search" label="Buscar" onPress={async () => setResults(q.trim().length >= 2 ? (await api.searchPeople(q.trim())).map((p) => ({ id: p.id, name: p.display_name })) : [])} />
       </View>
       <FlatList
