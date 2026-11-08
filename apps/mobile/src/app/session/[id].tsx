@@ -4,7 +4,7 @@ import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { getSignalState, lineToPoints, profileMissing, type TrackerState } from '@mb/core';
-import { Body, Button, FadeIn, Screen, SignalBadge } from '@/components/ui';
+import { Body, Button, FadeIn, Screen, StatusDot } from '@/components/ui';
 import { c, font, radius, shadow } from '@/theme';
 import { LiveMap } from '@/components/LiveMap';
 import { RunPanel } from '@/components/RunPanel';
@@ -23,7 +23,6 @@ export default function SessionScreen() {
   const [consent, setConsent] = useState(false);
   const [trackerState, setTrackerState] = useState<TrackerState>(tracker.state);
   const [busy, setBusy] = useState(false);
-  const [noBackground, setNoBackground] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
   const [showMap, setShowMap] = useState<boolean | null>(null);
   const [holdHint, setHoldHint] = useState(false);
@@ -74,7 +73,9 @@ export default function SessionScreen() {
     if (result === 'permission_denied')
       Alert.alert('Localização negada', 'Sem permissão de localização não é possível acompanhar seu percurso. Ative nas configurações do aparelho.');
     if (result === 'error') Alert.alert('Não foi possível iniciar', 'Verifique sua internet e tente novamente.');
-    setNoBackground(!(await hasBackgroundPermission()));
+    // Uma vez, só se faltar: sem "Sempre", o envio pausa com a tela bloqueada (no Expo Go não se aplica).
+    if (result === 'tracking' && backgroundSupported && !(await hasBackgroundPermission()))
+      Alert.alert('Localização com a tela bloqueada', 'Para continuar enviando sua localização com a tela bloqueada, permita "Sempre" nos Ajustes do celular.');
     void reload();
   }
 
@@ -95,17 +96,6 @@ export default function SessionScreen() {
     Alert.alert('Emergência enviada', 'A equipe de apoio recebeu seu pedido e sua última localização. Em risco de vida, ligue 192 (SAMU) ou 193.');
   }
 
-  /** Toque no selo de sinal: o que é compartilhado e até quando. */
-  function explainMonitoring() {
-    const what = official ? 'a equipe de apoio da Missão Barra e os outros participantes do evento' : 'os amigos desta corrida';
-    Alert.alert(
-      tracking ? 'Você está sendo monitorado' : signal === 'finished' ? 'Participação finalizada' : 'Monitoramento',
-      tracking
-        ? `Durante o percurso, só a sua localização é enviada (a cada ~20 s) para ${what}. Nada mais do celular é acessado.\n\nAo tocar em Finalizar, o envio para.${!backgroundSupported ? '\n\nNo modo de teste, mantenha o app aberto: com a tela bloqueada o envio pausa.' : noBackground ? '\n\nPermita localização "Sempre" para continuar com a tela bloqueada.' : ''}`
-        : signal === 'finished' ? 'Sua localização não está mais sendo compartilhada.' : 'Sua localização só é enviada depois que você inicia o percurso.',
-    );
-  }
-
   function finish() {
     Alert.alert('Finalizar participação?', 'Sua localização deixará de ser compartilhada.', [
       { text: 'Continuar', style: 'cancel' },
@@ -123,7 +113,7 @@ export default function SessionScreen() {
             <Text style={st.hSub} numberOfLines={1}>{session.name}</Text>
           </View>
         ),
-        headerRight: () => (mine ? <SignalBadge state={signal} onPress={explainMonitoring} /> : null),
+        headerRight: () => (mine ? <StatusDot state={signal} who={official ? 'a organização' : 'quem está nesta corrida com você'} /> : null),
       }} />
       <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
 

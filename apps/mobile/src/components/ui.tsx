@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from 'react';
-import { ActivityIndicator, Animated, Easing, InputAccessoryView, Keyboard, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
+import { ActivityIndicator, Animated, Easing, InputAccessoryView, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -126,6 +126,50 @@ export function SignalBadge({ state, onPress, label }: { state: SignalState; onP
   return <Pressable onPress={onPress} hitSlop={8} accessibilityRole="button" accessibilityLabel={`${label ?? SIGNAL_LABEL[state]}: o que isso significa`}>{body}</Pressable>;
 }
 
+const STATUS_HELP: Record<SignalState, string> = {
+  tracking: 'Sua localização está chegando normalmente.',
+  stale: 'Faz alguns minutos sem localização nova (internet ou GPS fraco). Volta sozinho.',
+  finished: 'Você finalizou: a localização não é mais compartilhada.',
+  not_started: 'A localização só é compartilhada depois que você inicia o percurso.',
+};
+const STATUS_ORDER: SignalState[] = ['tracking', 'stale', 'finished', 'not_started'];
+
+/**
+ * Só a bolinha de status (cabeçalho). Tocar abre a legenda: status possíveis, o atual e por que existe.
+ * `who`: quem acompanha (organização ou amigos da corrida).
+ */
+export function StatusDot({ state, who }: { state: SignalState; who: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Pressable onPress={() => setOpen(true)} hitSlop={12} accessibilityRole="button" accessibilityLabel={`Status: ${SIGNAL_LABEL[state]}. Toque para entender`}
+        style={s.dotBtn}>
+        <PulseDot color={signalColor[state]} active={state === 'tracking'} />
+      </Pressable>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+        <Pressable style={s.backdrop} onPress={() => setOpen(false)} accessibilityLabel="Fechar">
+          <Pressable style={s.sheet} onPress={() => undefined}>
+            <Text style={s.sheetTitle}>Status do percurso</Text>
+            <Text style={s.sheetBody}>Por segurança, {who} sabe onde você está enquanto você faz o percurso. Só a localização é compartilhada, e isso termina quando você finaliza.</Text>
+            <View style={{ gap: 8, marginTop: 4 }}>
+              {STATUS_ORDER.map((k) => (
+                <View key={k} style={[s.statusRow, k === state && s.statusRowOn]}>
+                  <View style={[s.statusDot, { backgroundColor: signalColor[k] }]} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={s.statusName}>{SIGNAL_LABEL[k]}{k === state ? '  ·  agora' : ''}</Text>
+                    <Text style={s.statusText}>{STATUS_HELP[k]}</Text>
+                  </View>
+                </View>
+              ))}
+            </View>
+            <Pressable onPress={() => setOpen(false)} style={s.sheetOk} accessibilityRole="button"><Text style={s.sheetOkText}>ENTENDI</Text></Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
+  );
+}
+
 /** Cartão de lista (toque opcional) com entrada escalonada. */
 export function Row({ children, onPress, index }: { children: ReactNode; onPress?: () => void; index?: number }) {
   return (
@@ -175,4 +219,16 @@ export const s = StyleSheet.create({
   statValue: { fontFamily: font.display, fontSize: 20, color: c.charcoal },
   statLabel: { fontFamily: font.body, fontSize: 11, color: c.inkSoft, textTransform: 'uppercase', letterSpacing: 0.6, marginTop: 2 },
   empty: { alignItems: 'center', gap: space.sm, paddingVertical: 48 },
+  dotBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.12)' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(29,30,34,0.45)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: c.white, borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 20, paddingBottom: 32, gap: 10 },
+  sheetTitle: { fontFamily: font.display, fontSize: 18, color: c.charcoal, textTransform: 'uppercase' },
+  sheetBody: { fontFamily: font.body, fontSize: 14.5, color: c.charcoal, lineHeight: 20 },
+  statusRow: { flexDirection: 'row', gap: 10, alignItems: 'center', padding: 10, borderRadius: radius, borderWidth: 1, borderColor: c.line },
+  statusRowOn: { borderColor: c.orange, backgroundColor: c.surface },
+  statusDot: { width: 12, height: 12, borderRadius: 6 },
+  statusName: { fontFamily: font.bold, fontSize: 13.5, color: c.charcoal },
+  statusText: { fontFamily: font.body, fontSize: 12.5, color: c.inkSoft },
+  sheetOk: { marginTop: 6, minHeight: 48, borderRadius: radius, backgroundColor: c.orangeDark, alignItems: 'center', justifyContent: 'center' },
+  sheetOkText: { fontFamily: font.bold, fontSize: 14, color: c.white, letterSpacing: 1.1 },
 });
