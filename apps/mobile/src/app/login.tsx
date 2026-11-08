@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, View } from 'react-native';
+import { Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { isEmail, passwordProblem } from '@mb/core';
 import { Body, Button, FadeIn, Input, Screen } from '@/components/ui';
-import { c, font } from '@/theme';
+import { BrandHero } from '@/components/BrandHero';
 import { api, logger } from '@/lib/services';
 
 export default function Login() {
@@ -33,11 +33,7 @@ export default function Login() {
     <Screen>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1, justifyContent: 'center', gap: 12 }}>
         <FadeIn>
-          <View style={st.brand}>
-            <Text style={st.kicker}>Caminhada de 40 km</Text>
-            <Text style={st.logo}>MISSÃO{'\n'}BARRA</Text>
-            <Text style={st.marker}>Missão dada é Missão Barra!</Text>
-          </View>
+          <BrandHero compact />
         </FadeIn>
         {mode === 'up' && <Input placeholder="Nome completo" value={name} onChangeText={setName} autoComplete="name" />}
         <Input placeholder="E-mail" autoCapitalize="none" keyboardType="email-address" value={email} onChangeText={setEmail} />
@@ -50,9 +46,3 @@ export default function Login() {
   );
 }
 
-const st = StyleSheet.create({
-  brand: { backgroundColor: c.charcoal, borderRadius: 14, padding: 24, marginBottom: 12 },
-  kicker: { fontFamily: font.bold, color: c.orangeLight, fontSize: 12, letterSpacing: 1.5, textTransform: 'uppercase' },
-  logo: { fontFamily: font.display, color: c.white, fontSize: 44, lineHeight: 46, marginTop: 6 },
-  marker: { fontFamily: font.body, color: c.sand, fontSize: 15, marginTop: 10, transform: [{ rotate: '-2deg' }] },
-});

@@ -9,7 +9,11 @@ export function Staff() {
   const [staff, setStaff] = useState<Member[]>([]);
   const [email, setEmail] = useState('');
   const [me, setMe] = useState('');
-  const load = () => run('admin.staff', api.staff).then((s) => s && setStaff(s));
+  const [changes, setChanges] = useState<Awaited<ReturnType<typeof api.roleChanges>>>([]);
+  const load = () => Promise.all([
+    run('admin.staff', api.staff).then((s) => s && setStaff(s)),
+    api.roleChanges().then(setChanges).catch(() => undefined),
+  ]);
   useEffect(() => {
     void load();
     void api.me().then(setMe);
@@ -28,7 +32,7 @@ export function Staff() {
     <>
       <form className="card row fade-in" onSubmit={add}>
         <h2 style={{ width: '100%' }}>Equipe da organização</h2>
-        <p className="muted" style={{ width: '100%', margin: 0 }}>A pessoa precisa ter conta no app. Organizadores veem localização, contatos e logs de todos os eventos oficiais.</p>
+        <p className="muted" style={{ width: '100%', margin: 0 }}>Só organizadores concedem acesso. A pessoa precisa ter conta no app (ou use a página Pessoas). Organizadores veem localização, contatos e logs de todos os eventos oficiais.</p>
         <input type="email" placeholder="E-mail da conta" value={email} onChange={(e) => setEmail(e.target.value)} style={{ flex: 1, minWidth: 220 }} required />
         <button>Adicionar →</button>
       </form>
@@ -52,6 +56,15 @@ export function Staff() {
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="card fade-in">
+        <h3>Histórico de permissões</h3>
+        {!changes.length && <p className="muted">Nenhuma mudança registrada.</p>}
+        <ul className="feed">
+          {changes.map((c, i) => (
+            <li key={i}><span className="muted">{new Date(c.at).toLocaleString('pt-BR')}</span> <b>{c.user_name}</b> {c.role === 'admin' ? 'virou organizador' : 'deixou a organização'}{c.actor_name ? ` · por ${c.actor_name}` : ' · pelo sistema'}</li>
+          ))}
+        </ul>
       </div>
     </>
   );

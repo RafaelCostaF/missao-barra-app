@@ -423,3 +423,10 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/log-ingest/deno.json"
 entrypoint = "./functions/log-ingest/index.ts"
+
+[functions.strava]
+enabled = true
+# Callback e webhook vêm do Strava (sem JWT); as rotas do app validam o JWT na própria função.
+verify_jwt = false
+import_map = "./functions/strava/deno.json"
+entrypoint = "./functions/strava/index.ts"

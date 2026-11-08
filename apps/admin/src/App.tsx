@@ -6,6 +6,7 @@ import { Events } from './pages/Events';
 import { EventDetail } from './pages/EventDetail';
 import { Logs } from './pages/Logs';
 import { Staff } from './pages/Staff';
+import { People } from './pages/People';
 import { AlertCenter } from './components/AlertCenter';
 
 /** Rotas por hash: #/eventos, #/evento/<id>, #/logs. Sem dependência de roteador. */
@@ -43,15 +44,16 @@ export function App() {
   return (
     <>
       <header>
-        <span className="brand">MB<span className="full"> · Missão Barra</span></span>
+        <a className="brand" href="#/eventos"><img src={`${import.meta.env.BASE_URL}icon-512.png`} alt="" width={28} height={28} />MB<span className="full"> · Missão Barra</span></a>
         <a href="#/eventos">Eventos</a>
+        <a href="#/pessoas">Pessoas</a>
         <a href="#/equipe">Equipe</a>
         <a href="#/logs">Logs</a>
         <AlertCenter />
         <button className="secondary" style={{ color: 'var(--white)', borderColor: 'var(--white)' }} onClick={() => api.signOut()}>Sair</button>
       </header>
       <main>
-        {page === 'evento' && id ? <EventDetail key={id} id={id} tab={sub} /> : page === 'logs' ? <Logs /> : page === 'equipe' ? <Staff /> : <Events />}
+        {page === 'evento' && id ? <EventDetail key={id} id={id} tab={sub} /> : page === 'logs' ? <Logs /> : page === 'equipe' ? <Staff /> : page === 'pessoas' ? <People /> : <Events />}
       </main>
     </>
   );

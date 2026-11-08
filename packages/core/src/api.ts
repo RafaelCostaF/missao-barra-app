@@ -1,6 +1,8 @@
 import type { RealtimeChannel, SupabaseClient } from '@supabase/supabase-js';
 import type { ParticipantSummary } from './audit';
 import type { Contact } from './people';
+import type { PersonRow } from './directory';
+import type { StravaAccount, StravaActivity } from './strava';
 import type { Change } from './notifications';
 import type { AlertType, Checkpoint, Fix, Session, SessionStatus } from './types';
 
@@ -56,6 +58,13 @@ export function createApi(db: SupabaseClient) {
     const rows = ok(await db.from('participants').update(patch).eq('session_id', sessionId).eq('user_id', await me()).select('status'));
     // RLS bloqueia em silêncio (0 linhas); vira erro para aparecer nos logs.
     if (!rows.length) throw new Error('participation not found');
+  };
+
+  /** Rotas da Edge Function `strava` (JWT do usuário). */
+  const stravaFn = async <T,>(route: string, body: unknown = {}): Promise<T> => {
+    const { data, error } = await db.functions.invoke(`strava/${route}`, { body: body as Record<string, unknown> });
+    if (error) throw error;
+    return data as T;
   };
 
   const api = {
@@ -160,10 +169,44 @@ export function createApi(db: SupabaseClient) {
     photoUrl: async (path: string) => ok(await db.storage.from('avatars').createSignedUrl(path, 3600)).signedUrl,
     staff: async () => ok(await db.rpc('list_staff')) as { id: string; display_name: string; email: string }[],
     setStaff: async (email: string, admin: boolean) => ok(await db.rpc('set_staff', { p_email: email, p_admin: admin })),
+    /** Concede/retira organizador (só admin; registrado em role_changes). */
+    setAdmin: async (userId: string, admin: boolean) => ok(await db.rpc('set_admin', { p_user: userId, p_admin: admin })),
+    roleChanges: async () => ok(await db.rpc('list_role_changes')) as { at: string; user_name: string; actor_name: string | null; role: string }[],
+    /** Diretório de todas as contas com contadores de participação (só admin). */
+    people: async () => ok(await db.rpc('admin_people')) as PersonRow[],
+    personHistory: async (userId: string) => ok(await db.rpc('admin_person_history', { p_user: userId })) as
+      { session_id: string; kind: 'official' | 'private'; name: string; starts_at: string; session_status: SessionStatus; status: string; distance_m: number; is_test: boolean }[],
+    contactOf: async (userId: string) => ok(await db.from('profile_contacts').select('*').eq('user_id', userId).maybeSingle()) as Contact | null,
     setDisplayName: async (name: string) => ok(await db.from('profiles').update({ display_name: name }).eq('id', await me())),
     /** Contatos dos participantes (somente organização; RLS). */
     contacts: async (userIds: string[]) =>
       userIds.length ? (ok(await db.from('profile_contacts').select('*').in('user_id', userIds)) as Contact[]) : [],
+
+    // ---------- Strava ----------
+    /** Conta Strava ligada (a própria, ou de outra pessoa se ela compartilhou). */
+    stravaAccount: async (userId?: string) =>
+      ok(await db.from('strava_accounts').select('*').eq('user_id', userId ?? (await me())).maybeSingle()) as StravaAccount | null,
+    /** Perfis Strava de amigos que compartilharam (RLS filtra). */
+    friendsStrava: async () => ok(await db.from('strava_accounts').select('user_id, athlete_id, athlete_name, profile_url').neq('user_id', await me())) as
+      Pick<StravaAccount, 'user_id' | 'athlete_id' | 'athlete_name' | 'profile_url'>[],
+    /** Sem API: grava o link do próprio perfil (normalizado por parseStravaProfile) e os consentimentos. */
+    saveStravaLink: async (profileUrl: string, share: Partial<Pick<StravaAccount, 'share_with_org' | 'share_with_friends'>> = {}) => {
+      const user_id = await me();
+      const { data } = await db.from('strava_accounts').select('user_id').eq('user_id', user_id).maybeSingle();
+      ok(data ? await db.from('strava_accounts').update({ profile_url: profileUrl, ...share }).eq('user_id', user_id)
+        : await db.from('strava_accounts').insert({ user_id, profile_url: profileUrl, ...share }));
+    },
+    removeStravaLink: async () => ok(await db.from('strava_accounts').delete().eq('user_id', await me())),
+    stravaActivities: async (userId?: string, limit = 30) =>
+      ok(await db.from('strava_activities').select('*').eq('user_id', userId ?? (await me())).order('start_date', { ascending: false }).limit(limit)) as StravaActivity[],
+    setStravaSharing: async (patch: Partial<Pick<StravaAccount, 'share_with_org' | 'share_with_friends'>>) =>
+      ok(await db.from('strava_accounts').update(patch).eq('user_id', await me())),
+    /** URL de login no Strava; `returnUrl` é o deep link de volta ao app. */
+    stravaStart: async (returnUrl: string) => (await stravaFn<{ url: string }>('start', { returnUrl })).url,
+    /** false enquanto o app do Strava não foi configurado no servidor (o app esconde a integração). */
+    stravaConfigured: async () => (await stravaFn<{ configured: boolean }>('status').catch(() => ({ configured: false }))).configured,
+    stravaSync: async () => (await stravaFn<{ synced: number | null }>('sync')).synced,
+    stravaDisconnect: async () => void (await stravaFn('disconnect')),
 
     // ---------- amizades ----------
     searchPeople: async (q: string) =>

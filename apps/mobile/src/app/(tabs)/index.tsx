@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
-import { FlatList, RefreshControl } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { profileMissing, type Session } from '@mb/core';
 import { Body, Button, Empty, FadeIn, Row, Screen, SignalBadge, Title } from '@/components/ui';
+import { BrandHero } from '@/components/BrandHero';
 import { api, logger } from '@/lib/services';
 
 export default function Events() {
@@ -25,20 +26,27 @@ export default function Events() {
   useFocusEffect(useCallback(() => void load(), [load]));
 
   return (
-    <Screen>
-      {missing.length > 0 && (
-        <FadeIn>
-          <Row onPress={() => router.push('/profile')}>
-            <Title size={15}>Complete seu cadastro</Title>
-            <Body muted small>Falta {missing.join(' e ')}. Sem isso não é possível iniciar o percurso.</Body>
-          </Row>
-        </FadeIn>
-      )}
+    <Screen top>
       <FlatList
         data={events}
         keyExtractor={(e) => e.id}
         contentContainerStyle={{ gap: 12 }}
         refreshControl={<RefreshControl refreshing={loading} onRefresh={load} />}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View style={{ gap: 12 }}>
+            <BrandHero next={events.find((e) => e.status === 'live') ?? events[0]} />
+            {missing.length > 0 && (
+              <FadeIn>
+                <Row onPress={() => router.push('/profile')}>
+                  <Title size={15}>Complete seu cadastro</Title>
+                  <Body muted small>Falta {missing.join(' e ')}. Sem isso não é possível iniciar o percurso.</Body>
+                </Row>
+              </FadeIn>
+            )}
+            {events.length > 0 && <Title size={15}>Eventos oficiais</Title>}
+          </View>
+        }
         ListEmptyComponent={loading ? undefined : <Empty icon="calendar-outline" text="Nenhum evento oficial publicado no momento." />}
         renderItem={({ item, index }) => (
           <Row index={index} onPress={() => router.push(`/session/${item.id}`)}>

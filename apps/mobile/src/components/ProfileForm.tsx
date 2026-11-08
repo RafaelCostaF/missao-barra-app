@@ -6,6 +6,7 @@ import { formatPhoneBR, isPhoneBR, maskPhoneBR, profileMissing, toE164BR, type C
 import { Body, Button, FadeIn, Input, Screen, Title } from '@/components/ui';
 import { api, logger } from '@/lib/services';
 import { pickPhoto } from '@/lib/photo';
+import { StravaCard } from '@/components/Strava';
 import { c, radius, shadow } from '@/theme';
 
 const EMPTY = { name: '', phone: '', registration_number: '', emergency_name: '', emergency_phone: '', health_notes: '' };
@@ -127,6 +128,7 @@ export function ProfileForm({ onSaved }: { onSaved?: () => void }) {
 
           <Button icon="save-outline" haptic="light" label="Salvar" busy={busy === 'save'} onPress={save} />
           <Body muted small>Seus dados são vistos só por você e pela organização, trafegam criptografados (HTTPS) e ficam armazenados criptografados.</Body>
+          {!onSaved && <FadeIn index={4}><StravaCard /></FadeIn>}
           {!onSaved && <Button icon="log-out-outline" variant="secondary" label="Sair da conta" onPress={() => void api.signOut()} />}
         </ScrollView>
       </KeyboardAvoidingView>

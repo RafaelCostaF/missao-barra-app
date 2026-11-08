@@ -37,5 +37,6 @@ export function useLiveSession(id: string) {
     };
   }, [id, reload]);
 
-  return { session, participants, checkpoints, alerts, reload };
+  const reloadCheckpoints = useCallback(() => api.checkpoints(id).then(setCheckpoints), [id]);
+  return { session, participants, checkpoints, alerts, reload, reloadCheckpoints };
 }

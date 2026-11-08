@@ -22,8 +22,9 @@ export function KeyboardBar() {
   );
 }
 
-export function Screen({ children }: { children: ReactNode }) {
-  return <SafeAreaView style={s.screen} edges={['bottom']}>{children}</SafeAreaView>;
+/** `top`: tela sem cabeçalho (respeita o notch). */
+export function Screen({ children, top }: { children: ReactNode; top?: boolean }) {
+  return <SafeAreaView style={s.screen} edges={top ? ['top', 'bottom'] : ['bottom']}>{children}</SafeAreaView>;
 }
 
 export function Title({ children, size = 22 }: { children: ReactNode; size?: number }) {

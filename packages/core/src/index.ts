@@ -12,3 +12,5 @@ export * from './crowd';
 export * from './audit';
 export * from './people';
 export * from './validation';
+export * from './directory';
+export * from './strava';

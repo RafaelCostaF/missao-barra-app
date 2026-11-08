@@ -101,7 +101,8 @@ test('relatório: indicadores, funil por ponto e linha do tempo por pessoa', asy
   const rows = page.locator('tr.clickable');
   await expect(rows.first()).toBeVisible();
   await shot(page, '07-relatorio');
-  await rows.first().click();
+  // Participante simulado (tem auditoria completa; contas reais antigas podem não ter).
+  await rows.filter({ hasText: 'Simulado' }).first().click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.locator('.timeline li').first()).toBeVisible();
   await expect(dialog.getByText(/Passou por|Iniciou o percurso/).first()).toBeVisible();

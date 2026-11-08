@@ -167,3 +167,19 @@ b.low { color: var(--danger); }
   td, th { padding: 8px 6px; }
   .bar-row { grid-template-columns: minmax(0, 1fr) 70px 24px; }
 }
+
+/* Marca */
+header .brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+header .brand img { border-radius: 6px; }
+.login-brand { display: flex; gap: 14px; align-items: center; background: var(--charcoal); color: var(--white); border-radius: 10px; padding: 18px; margin-bottom: 4px; }
+.login-brand img { border-radius: 14px; flex: none; }
+.login-brand h1 { color: var(--white); font-size: 1.9rem; line-height: 1; margin: 2px 0 6px; }
+.login-brand .kicker { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #eb6d35; }
+.login-brand .motto { display: inline-block; color: var(--sand); transform: rotate(-2deg); font-size: 14px; }
+
+/* Strava (laranja oficial #FC5200; atribuição obrigatória) */
+.badge.strava { background: #fc5200; }
+.btn.strava { background: #fc5200; border-color: #fc5200; }
+.strava-link { color: #fc5200; font-weight: 700; font-size: 12px; text-decoration: none; }
+.strava-box { margin-top: 16px; border-top: 3px solid #fc5200; padding-top: 12px; }
+.powered { text-align: right; font-size: 11px; color: var(--ink-soft); margin: 6px 0 0; } .powered b { color: #fc5200; }

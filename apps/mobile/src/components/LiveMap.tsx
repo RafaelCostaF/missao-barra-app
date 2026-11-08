@@ -6,9 +6,9 @@ import { Body } from '@/components/ui';
 import { c, signalColor } from '@/theme';
 
 /** Android sem chave do Google Maps derruba o app ao abrir o mapa. */
-const mapAvailable = Platform.OS !== 'android' || Boolean(Constants.expoConfig?.extra?.hasMapsKey);
+export const mapAvailable = Platform.OS !== 'android' || Boolean(Constants.expoConfig?.extra?.hasMapsKey);
 
-const SALVADOR = { latitude: -12.985, longitude: -38.44, latitudeDelta: 0.15, longitudeDelta: 0.2 };
+export const SALVADOR = { latitude: -12.985, longitude: -38.44, latitudeDelta: 0.15, longitudeDelta: 0.2 };
 
 /** Mapa único para evento oficial e corrida privada. Participantes sem coordenada (não compartilham) não aparecem. */
 export function LiveMap({ participants, checkpoints, now }: { participants: LiveParticipant[]; checkpoints: Checkpoint[]; now: number }) {
