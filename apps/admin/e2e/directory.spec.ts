@@ -7,7 +7,6 @@ const PASSWORD = process.env.DEMO_ADMIN_PASSWORD ?? 'missao-dada-2026';
 test('pessoas: busca, filtros, perfil e concessão de organizador com histórico', async ({ page }) => {
   const p = await testParticipant(`Diretorio ${Date.now().toString().slice(-6)}`);
   await p.saveStravaLink('https://www.strava.com/athletes/12345', { share_with_org: true }); // link sem API, liberado à organização
-  page.on('dialog', (d) => d.accept());
   await page.goto('/');
   await expect(page.getByText('Missão dada é Missão Barra!')).toBeVisible(); // marca no login
   await page.getByPlaceholder('E-mail').fill(EMAIL);
@@ -28,10 +27,13 @@ test('pessoas: busca, filtros, perfil e concessão de organizador com histórico
   await expect(dialog.getByText('Participações (0)')).toBeVisible();
   await expect(dialog.getByRole('link', { name: 'Ver perfil no Strava' })).toHaveAttribute('href', 'https://www.strava.com/athletes/12345');
   await dialog.getByRole('button', { name: /tornar organizador/i }).click();
+  await page.getByRole('dialog', { name: 'Tornar organizador?' }).getByRole('button', { name: 'Tornar organizador' }).click();
   await expect(row.getByText('org')).toBeVisible();
-  await dialog.getByRole('button', { name: /retirar organizador/i }).click();
+  await expect(page.locator('.toast')).toContainText('agora é organizador');
+  await page.getByRole('dialog', { name: /Perfil de/ }).getByRole('button', { name: /retirar organizador/i }).click();
+  await page.getByRole('dialog', { name: 'Retirar organizador?' }).getByRole('button', { name: 'Retirar acesso' }).click();
   await expect(row.getByText('org')).toHaveCount(0);
-  await dialog.getByRole('button', { name: 'Fechar' }).click();
+  await page.getByRole('dialog', { name: /Perfil de/ }).getByRole('button', { name: 'Fechar' }).click();
 
   await page.getByRole('link', { name: 'Equipe' }).click();
   await expect(page.locator('.feed li', { hasText: /deixou a organização · por/ }).first()).toBeVisible();

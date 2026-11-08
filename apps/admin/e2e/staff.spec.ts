@@ -6,7 +6,6 @@ const PASSWORD = process.env.DEMO_ADMIN_PASSWORD ?? 'missao-dada-2026';
 
 test('equipe: promove e remove organizador pelo e-mail', async ({ page }) => {
   const p = await testParticipant('Novo Organizador');
-  page.on('dialog', (d) => d.accept());
   await page.goto('/');
   await page.getByPlaceholder('E-mail').fill(EMAIL);
   await page.getByPlaceholder('Senha').fill(PASSWORD);
@@ -20,5 +19,6 @@ test('equipe: promove e remove organizador pelo e-mail', async ({ page }) => {
   const row = page.getByRole('row', { name: new RegExp(p.email) });
   await expect(row).toBeVisible();
   await row.getByRole('button', { name: 'Remover' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Remover' }).click();
   await expect(row).toHaveCount(0);
 });

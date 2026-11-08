@@ -73,6 +73,10 @@ export function createApi(db: SupabaseClient) {
       ok(await db.auth.signUp({ email, password, options: { data: { display_name: displayName } } })),
     signIn: async (email: string, password: string) => ok(await db.auth.signInWithPassword({ email, password })),
     signOut: () => db.auth.signOut(),
+    /** Envia o link de nova senha; `redirectTo` = página do painel que define a senha (precisa estar na allowlist do Auth). */
+    resetPassword: async (email: string, redirectTo: string) => ok(await db.auth.resetPasswordForEmail(email.trim(), { redirectTo })),
+    /** Define a nova senha na sessão aberta pelo link do e-mail. */
+    updatePassword: async (password: string) => ok(await db.auth.updateUser({ password })),
     profile: async () => ok(await db.from('profiles').select('id, display_name, role, pseudo_id').eq('id', await me()).single()),
 
     // ---------- sessões ----------

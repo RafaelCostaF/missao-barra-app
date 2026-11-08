@@ -1,5 +1,7 @@
 import { useState, type FormEvent } from 'react';
-import { api, logger } from '../lib';
+import { isEmail } from '@mb/core';
+import { api, logger, PANEL_URL } from '../lib';
+import { toast } from '../components/Feedback';
 
 export function Login() {
   const [email, setEmail] = useState('');
@@ -32,6 +34,16 @@ export function Login() {
         <input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {error && <div className="form-error" role="alert">{error}</div>}
         <button>Entrar →</button>
+        <button type="button" className="linkish forgot" onClick={async () => {
+          if (!isEmail(email)) return setError('Digite seu e-mail acima e toque de novo em "Esqueci minha senha".');
+          try {
+            await api.resetPassword(email, PANEL_URL);
+            setError('');
+            toast(`Enviamos um link para ${email}. Abra o e-mail para criar uma nova senha.`);
+          } catch (err) {
+            setError(`Não foi possível enviar: ${(err as Error).message}`);
+          }
+        }}>Esqueci minha senha</button>
       </form>
     </main>
   );

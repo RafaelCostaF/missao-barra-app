@@ -4,8 +4,9 @@ import {
   stravaSummary, telLink, toCsv, whatsappLink,
   type Api, type Contact, type DirectoryFilter, type DirectorySort, type PersonRow, type StravaActivity,
 } from '@mb/core';
-import { api, download, run } from '../lib';
+import { api, download, run, runOk } from '../lib';
 import { Modal } from '../components/Modal';
+import { confirmDialog, toast } from '../components/Feedback';
 
 const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('pt-BR') : '—');
 const STATUS: Record<string, string> = { accepted: 'Inscrito', tracking: 'Em percurso', finished: 'Finalizou' };
@@ -109,8 +110,11 @@ function PersonProfile({ person: p, onClose, onChanged }: { person: PersonRow; o
   async function toggleAdmin() {
     const make = p.role !== 'admin';
     const msg = make ? `Tornar ${p.display_name} organizador? A pessoa passa a ver localização, contatos e logs de todos os eventos oficiais.` : `Retirar o acesso de organizador de ${p.display_name}?`;
-    if (!confirm(msg)) return;
-    if (await run('admin.set_admin', () => api.setAdmin(p.id, make)) !== undefined) onChanged();
+    if (!(await confirmDialog({ title: make ? 'Tornar organizador?' : 'Retirar organizador?', body: msg, confirmLabel: make ? 'Tornar organizador' : 'Retirar acesso', danger: !make }))) return;
+    if (await runOk('admin.set_admin', () => api.setAdmin(p.id, make))) {
+      toast(make ? `${p.display_name} agora é organizador.` : `${p.display_name} não é mais organizador.`);
+      onChanged();
+    }
   }
 
   return (

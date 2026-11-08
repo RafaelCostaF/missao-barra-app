@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { getSignalState, profileMissing, type TrackerState } from '@mb/core';
 import { Body, Button, FadeIn, Screen, SignalBadge, Title } from '@/components/ui';
-import { c, radius, shadow } from '@/theme';
+import { c, font, radius, shadow } from '@/theme';
 import { LiveMap } from '@/components/LiveMap';
 import { RunPanel } from '@/components/RunPanel';
 import { useLiveSession } from '@/hooks/useLiveSession';
@@ -24,6 +25,8 @@ export default function SessionScreen() {
   const [busy, setBusy] = useState(false);
   const [noBackground, setNoBackground] = useState(false);
   const [missing, setMissing] = useState<string[]>([]);
+  const [showMap, setShowMap] = useState<boolean | null>(null);
+  const [holdHint, setHoldHint] = useState(false);
 
   useEffect(() => void api.me().then(setMe), []);
   // Ao voltar do Perfil, o lembrete some sem recarregar a tela.
@@ -43,14 +46,19 @@ export default function SessionScreen() {
   const tracking = mine?.status === 'tracking';
   const others = participants.filter((p) => p.user_id !== me && ['accepted', 'tracking', 'finished'].includes(p.status));
   const openAlerts = alerts.filter((a) => !a.resolved_at);
+  // Mapa aberto por padrão antes de começar; recolhido durante o percurso (a pessoa escolhe).
+  const mapOpen = showMap ?? !tracking;
 
+  /** Executa e recarrega; devolve false (e avisa) se falhou. */
   async function act(name: string, fn: () => Promise<unknown>) {
     setBusy(true);
     try {
       await logger.timed(name, fn, { session_id: id });
       await reload();
+      return true;
     } catch {
       Alert.alert('Algo deu errado', 'Tente de novo. Se continuar, avise a organização.');
+      return false;
     } finally {
       setBusy(false);
     }
@@ -78,6 +86,13 @@ export default function SessionScreen() {
     ]);
   }
 
+  // Emergência: segurar 1 s substitui a caixa de confirmação (mais rápido e sem toque acidental).
+  async function raiseEmergency() {
+    setHoldHint(false);
+    if (!(await act('alert.emergency', () => api.raiseAlert(id, 'emergency')))) return;
+    Alert.alert('Emergência enviada', 'A equipe de apoio recebeu seu pedido e sua última localização. Em risco de vida, ligue 192 (SAMU) ou 193.');
+  }
+
   function finish() {
     Alert.alert('Finalizar participação?', 'Sua localização deixará de ser compartilhada.', [
       { text: 'Continuar', style: 'cancel' },
@@ -89,23 +104,32 @@ export default function SessionScreen() {
     <Screen>
       <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
         <FadeIn>
-          <View style={st.map}>
-            <LiveMap participants={participants} checkpoints={checkpoints} now={now} />
-          </View>
-        </FadeIn>
-
-        <FadeIn index={1}>
-          <View style={st.card}>
-            <Title size={18}>{session.name}</Title>
-            <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <SignalBadge state={signal} />
-              {tracking && <Body muted small>Você está sendo monitorado</Body>}
+          <View style={st.head}>
+            <View style={{ flex: 1, gap: 6 }}>
+              <Title size={17}>{session.name}</Title>
+              <View style={{ flexDirection: 'row', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                <SignalBadge state={signal} />
+                {tracking && <Body muted small>Você está sendo monitorado</Body>}
+              </View>
             </View>
           </View>
         </FadeIn>
 
+        {/* Correndo, o que importa vem primeiro: pace, distância, próximo ponto. Mapa sob demanda. */}
         {mine && (tracking || mine.status === 'finished') && (
           <RunPanel sessionId={id} me={mine} participants={participants} checkpoints={checkpoints} now={now} />
+        )}
+
+        <Pressable onPress={() => setShowMap((v) => !v)} style={st.mapToggle} accessibilityRole="button" accessibilityState={{ expanded: mapOpen }}>
+          <Ionicons name={mapOpen ? 'chevron-up' : 'map-outline'} size={16} color={c.charcoal} />
+          <Text style={st.mapToggleText}>{mapOpen ? 'Esconder mapa' : 'Ver mapa'}</Text>
+        </Pressable>
+        {mapOpen && (
+          <FadeIn>
+            <View style={st.map}>
+              <LiveMap participants={participants} checkpoints={checkpoints} now={now} />
+            </View>
+          </FadeIn>
         )}
 
         {tracking && !backgroundSupported && <KeepAwake />}
@@ -146,17 +170,6 @@ export default function SessionScreen() {
         {session.status !== 'live' && session.status !== 'ended' && !(isOwner && !official) && <Notice icon="time-outline" text="Aguardando a largada. O botão de início aparece quando o percurso for aberto." />}
         {session.status === 'ended' && <Notice icon="flag-outline" text="Esta sessão foi encerrada." />}
 
-        {tracking && (
-          <FadeIn index={2}>
-            <View style={{ gap: 8 }}>
-              {official && <Button icon="warning" variant="danger" haptic="heavy" label="Emergência" onPress={() => confirmAlert('emergency')} />}
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <View style={{ flex: 1 }}><Button icon="hand-left-outline" variant="secondary" haptic="light" label="Ajuda" onPress={() => confirmAlert('help')} /></View>
-                <View style={{ flex: 1 }}><Button icon="stop-circle-outline" variant="secondary" label="Finalizar" busy={busy} onPress={finish} /></View>
-              </View>
-            </View>
-          </FadeIn>
-        )}
         {!official && isOwner && session.status === 'live' && (
           <Button variant="secondary" label="Encerrar para todos" onPress={() => act('race.end', async () => {
             if (tracking) await tracker.finish();
@@ -165,6 +178,20 @@ export default function SessionScreen() {
         )}
         <Body muted small>O app não substitui equipe médica nem garante resgate.</Body>
       </ScrollView>
+
+      {/* Sempre à mão, sem rolar: emergência, ajuda e finalizar. */}
+      {tracking && (
+        <View style={st.actionBar}>
+          {official && (
+            <HoldButton label="Emergência" hint="Segure 1 s para acionar" onHold={raiseEmergency} onTap={() => setHoldHint(true)} />
+          )}
+          {holdHint && official && <Text style={st.holdHint}>Segure o botão por 1 segundo para acionar a emergência.</Text>}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <View style={{ flex: 1 }}><Button icon="hand-left-outline" variant="secondary" haptic="light" label="Ajuda" onPress={() => confirmAlert('help')} /></View>
+            <View style={{ flex: 1 }}><Button icon="stop-circle-outline" variant="secondary" label="Finalizar" busy={busy} onPress={finish} /></View>
+          </View>
+        </View>
+      )}
     </Screen>
   );
 }
@@ -181,7 +208,42 @@ function Notice({ icon, text, tone }: { icon: keyof typeof Ionicons.glyphMap; te
   );
 }
 
+/** Botão que só dispara se segurado (barra enche em 1 s). Toque rápido mostra a dica. */
+function HoldButton({ label, hint, onHold, onTap }: { label: string; hint: string; onHold: () => void; onTap: () => void }) {
+  const fill = useState(() => new Animated.Value(0))[0];
+  const fired = useRef(false);
+  const start = () => {
+    fired.current = false;
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    Animated.timing(fill, { toValue: 1, duration: 1000, easing: Easing.linear, useNativeDriver: false }).start();
+  };
+  const stop = () => {
+    fill.stopAnimation();
+    Animated.timing(fill, { toValue: 0, duration: 150, useNativeDriver: false }).start();
+  };
+  return (
+    <Pressable onPressIn={start} onPressOut={stop} delayLongPress={1000}
+      onLongPress={() => { fired.current = true; void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning); onHold(); }}
+      onPress={() => { if (!fired.current) onTap(); }}
+      accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint}
+      style={st.hold}>
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: '#8E1A13', width: fill.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) }]} />
+      <Ionicons name="warning" size={20} color={c.white} />
+      <Text style={st.holdText}>{label.toUpperCase()}</Text>
+      <Text style={st.holdSub}>segure</Text>
+    </Pressable>
+  );
+}
+
 const st = StyleSheet.create({
+  head: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  mapToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.surface },
+  mapToggleText: { fontFamily: font.bold, fontSize: 13, color: c.charcoal, textTransform: 'uppercase', letterSpacing: 0.6 },
+  actionBar: { gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.white },
+  hold: { minHeight: 56, borderRadius: radius, backgroundColor: c.danger, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, ...shadow },
+  holdText: { fontFamily: font.bold, fontSize: 16, color: c.white, letterSpacing: 1.2 },
+  holdSub: { fontFamily: font.body, fontSize: 12, color: '#FFD9D4' },
+  holdHint: { fontFamily: font.bold, fontSize: 12.5, color: c.danger, textAlign: 'center' },
   map: { height: 280, borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: c.line },
   card: { backgroundColor: c.surface, borderRadius: radius, padding: 16, gap: 12, borderWidth: 1, borderColor: c.line, ...shadow },
   notice: { flexDirection: 'row', gap: 10, alignItems: 'center', backgroundColor: c.surface, borderRadius: radius, padding: 12, borderLeftWidth: 3, borderWidth: 1, borderColor: c.line },

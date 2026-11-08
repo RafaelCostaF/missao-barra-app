@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 import { createApi, createLogger, type KeyValueStore } from '@mb/core';
+import { toast } from './components/Feedback';
 
 const url = import.meta.env.VITE_SUPABASE_URL as string;
+
+/** Aberto pelo link "Esqueci minha senha" (lido antes do cliente consumir o token da URL). */
+export const recoveryAtLoad = /type=recovery/.test(location.hash);
+/** Endereço deste painel (destino do link de nova senha). */
+export const PANEL_URL = `${location.origin}${import.meta.env.BASE_URL}`;
 
 export const supabase = createClient(url, import.meta.env.VITE_SUPABASE_ANON_KEY as string);
 export const api = createApi(supabase);
@@ -31,8 +37,19 @@ export async function run<T>(event: string, fn: () => Promise<T>, meta?: Record<
   try {
     return await logger.timed(event, fn, meta);
   } catch (e) {
-    alert(`Não foi possível concluir: ${(e as Error).message}`);
+    toast(`Não foi possível concluir: ${(e as Error).message}`, 'error');
     return undefined;
+  }
+}
+
+/** Igual a `run`, mas diz se deu certo (ações sem retorno devolvem undefined também no sucesso). */
+export async function runOk(event: string, fn: () => Promise<unknown>, meta?: Record<string, unknown>): Promise<boolean> {
+  try {
+    await logger.timed(event, fn, meta);
+    return true;
+  } catch (e) {
+    toast(`Não foi possível concluir: ${(e as Error).message}`, 'error');
+    return false;
   }
 }
 

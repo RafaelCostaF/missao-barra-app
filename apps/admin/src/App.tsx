@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Session as AuthSession } from '@supabase/supabase-js';
-import { api, supabase } from './lib';
+import { api, recoveryAtLoad, supabase } from './lib';
+import { NewPassword } from './pages/NewPassword';
 import { Login } from './pages/Login';
 import { Events } from './pages/Events';
 import { EventDetail } from './pages/EventDetail';
@@ -22,12 +23,18 @@ function useHash() {
 
 export function App() {
   const [auth, setAuth] = useState<AuthSession | null | undefined>(undefined);
+  const [recovery, setRecovery] = useState(recoveryAtLoad);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [page, id, sub, extra] = useHash();
+  const [menu, setMenu] = useState(false);
+  useEffect(() => setMenu(false), [page, id, sub]); // fecha o menu ao navegar
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setAuth(data.session));
-    const { data } = supabase.auth.onAuthStateChange((_e, s) => setAuth(s));
+    const { data } = supabase.auth.onAuthStateChange((e, s) => {
+      if (e === 'PASSWORD_RECOVERY') setRecovery(true);
+      setAuth(s);
+    });
     return () => data.subscription.unsubscribe();
   }, []);
   useEffect(() => {
@@ -36,6 +43,8 @@ export function App() {
   }, [auth?.user.id]);
 
   if (auth === undefined) return null;
+  // Link de nova senha vale para qualquer conta (participante ou organizador).
+  if (recovery) return <NewPassword hasSession={!!auth} onDone={() => setRecovery(false)} />;
   if (!auth) return <Login />;
   if (isAdmin === false)
     return <main><div className="card">Esta conta não tem permissão de administrador. <button onClick={() => api.signOut()}>Sair</button></div></main>;
@@ -43,14 +52,17 @@ export function App() {
 
   return (
     <>
-      <header>
+      <header className={menu ? 'menu-open' : ''}>
         <a className="brand" href="#/eventos"><img src={`${import.meta.env.BASE_URL}icon-512.png`} alt="" width={28} height={28} />MB<span className="full"> · Missão Barra</span></a>
-        <a href="#/eventos">Eventos</a>
-        <a href="#/pessoas">Pessoas</a>
-        <a href="#/equipe">Equipe</a>
-        <a href="#/logs">Logs</a>
+        {/* No celular, alertas ficam sempre visíveis; a navegação vai para o menu ☰. */}
         <AlertCenter />
-        <button className="secondary" style={{ color: 'var(--white)', borderColor: 'var(--white)' }} onClick={() => api.signOut()}>Sair</button>
+        <button className="menu-toggle" aria-expanded={menu} aria-controls="nav" aria-label="Menu" onClick={() => setMenu((m) => !m)}>{menu ? '×' : '☰'}</button>
+        <nav id="nav" className="nav">
+          {[['eventos', 'Eventos'], ['pessoas', 'Pessoas'], ['equipe', 'Equipe'], ['logs', 'Logs']].map(([k, label]) => (
+            <a key={k} href={`#/${k}`} className={(page || 'eventos') === k || (k === 'eventos' && page === 'evento') ? 'current' : ''}>{label}</a>
+          ))}
+          <button className="secondary logout" onClick={() => api.signOut()}>Sair</button>
+        </nav>
       </header>
       <main>
         {page === 'evento' && id ? <EventDetail key={id} id={id} tab={sub} extra={extra} /> : page === 'logs' ? <Logs /> : page === 'equipe' ? <Staff /> : page === 'pessoas' ? <People /> : <Events />}

@@ -44,9 +44,11 @@ test('rastreio um a um: filtro, busca e perfil com contato', async ({ page }) =>
   await expect(dialog.getByText('verificado', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Alergia a dipirona')).toBeVisible();
   await expect(dialog.getByText('15%')).toBeVisible(); // bateria
-  page.once('dialog', (d) => d.accept());
-  await dialog.getByRole('button', { name: 'Finalizar participação' }).click(); // desistência registrada pela organização
-  await expect(dialog.getByRole('button', { name: 'Finalizar participação' })).toHaveCount(0);
+  const profile = page.getByRole('dialog', { name: /Perfil de/ });
+  await profile.getByRole('button', { name: 'Finalizar participação' }).click(); // desistência registrada pela organização
+  await page.getByRole('dialog', { name: /Finalizar a participação/ }).getByRole('button', { name: 'Finalizar participação' }).click();
+  await expect(page.locator('.toast')).toContainText('finalizada');
+  await expect(profile.getByRole('button', { name: 'Finalizar participação' })).toHaveCount(0);
   await page.waitForTimeout(400);
   await page.screenshot({ path: 'e2e/screenshots/10-perfil.png' });
 });

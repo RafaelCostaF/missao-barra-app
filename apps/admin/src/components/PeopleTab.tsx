@@ -3,8 +3,9 @@ import {
   classifyPeople, formatPhoneBR, getSignalState, LOW_BATTERY, mapsLink, matchesPerson, PERSON_FILTERS, SIGNAL_LABEL, telLink, toCsv, whatsappLink,
   type Alert, type Checkpoint, type Contact, type LiveParticipant, type ParticipantSummary, type Person, type PersonFilter,
 } from '@mb/core';
-import { api, download, fmtTime, run } from '../lib';
+import { api, download, fmtTime, runOk } from '../lib';
 import { Modal } from './Modal';
+import { confirmDialog, toast } from './Feedback';
 import { Timeline } from './Timeline';
 
 const ago = (iso: string | null, now: number) => {
@@ -114,8 +115,8 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
   }, [c?.photo_path]);
 
   async function finishForThem() {
-    if (!confirm(`Finalizar a participação de ${p.display_name}? Use em desistência ou quando a pessoa avisar que encerrou.`)) return;
-    await run('admin.finish_for', () => api.finishFor(sessionId, p.user_id), { session_id: sessionId });
+    if (!(await confirmDialog({ title: `Finalizar a participação de ${p.display_name}?`, body: 'Use em desistência ou quando a pessoa avisar que encerrou. A localização dela deixa de ser acompanhada.', confirmLabel: 'Finalizar participação', danger: true }))) return;
+    if (await runOk('admin.finish_for', () => api.finishFor(sessionId, p.user_id), { session_id: sessionId })) toast(`Participação de ${p.display_name} finalizada.`);
     onChanged();
   }
   return (

@@ -1,6 +1,8 @@
 # Review de UI/UX — Missão Barra (08/11/2026)
 
 Base: navegação real no painel publicado (computador 1400 px e celular 390 px, evento "ensaio de campo") e leitura das telas do app.
+**Status:** todos os P0 implementados (✅). P1 e P2 pendentes.
+
 Prioridade: **P0** = risco operacional ou bloqueio (fazer já) · **P1** = atrito frequente · **P2** = refinamento.
 
 Princípios usados: a ação mais comum é a mais visível; ação destrutiva nunca é o botão principal; todo número leva à lista que o explica; em campo (sol, pressa, uma mão) o essencial cabe sem rolar.
@@ -13,10 +15,10 @@ Princípios usados: a ação mais comum é a mais visível; ação destrutiva nu
 | # | Problema observado | Proposta |
 |---|---|---|
 | A1 | **Logs duplicados** (cada registro aparecia 3–5×) — corrida no buffer do logger. | ✅ Corrigido nesta revisão (fila nas gravações + teste). |
-| A2 | **No celular, o cabeçalho corta o indicador de alertas e o botão Sair** (390 px). O organizador em campo não vê emergências. | Cabeçalho móvel: logo + indicador de alertas sempre visível; navegação num menu (☰) ou barra inferior. |
-| A3 | **"Encerrar evento" é o botão laranja principal**, no topo de todas as abas (no celular ocupa a largura toda). Um toque errado encerra o rastreio de todos. | Mover ações do ciclo de vida para um menu "Evento ▾"; Encerrar em vermelho/contorno, com confirmação digitando o nome do evento. Laranja só para o próximo passo positivo (Publicar, Iniciar). |
-| A4 | **Percurso editável com o evento ao vivo**, sem aviso; trocar de aba descarta mudanças sem perguntar. | Ao vivo: aviso "mudar o percurso altera km/estimativas de todos"; indicador "alterações não salvas" + confirmação ao sair. |
-| A5 | **Erros e confirmações usam caixas nativas do navegador** (`alert`/`confirm`) — bloqueiam a tela, não seguem a marca, somem sem rastro. | Toasts (sucesso/erro) e modal de confirmação próprio, com o texto da consequência. |
+| A2 ✅ | **No celular, o cabeçalho corta o indicador de alertas e o botão Sair** (390 px). O organizador em campo não vê emergências. | Cabeçalho móvel: logo + indicador de alertas sempre visível; navegação num menu (☰) ou barra inferior. |
+| A3 ✅ | **"Encerrar evento" é o botão laranja principal**, no topo de todas as abas (no celular ocupa a largura toda). Um toque errado encerra o rastreio de todos. | Mover ações do ciclo de vida para um menu "Evento ▾"; Encerrar em vermelho/contorno, com confirmação digitando o nome do evento. Laranja só para o próximo passo positivo (Publicar, Iniciar). |
+| A4 ✅ | **Percurso editável com o evento ao vivo**, sem aviso; trocar de aba descarta mudanças sem perguntar. | Ao vivo: aviso "mudar o percurso altera km/estimativas de todos"; indicador "alterações não salvas" + confirmação ao sair. |
+| A5 ✅ | **Erros e confirmações usam caixas nativas do navegador** (`alert`/`confirm`) — bloqueiam a tela, não seguem a marca, somem sem rastro. | Toasts (sucesso/erro) e modal de confirmação próprio, com o texto da consequência. |
 
 ### P1
 | # | Problema | Proposta |
@@ -45,9 +47,9 @@ Princípios usados: a ação mais comum é a mais visível; ação destrutiva nu
 ### P0
 | # | Problema | Proposta |
 |---|---|---|
-| U1 | **Emergência/Ajuda/Finalizar ficam no fim da tela**, abaixo do mapa e de todo o painel de métricas — em uma emergência a pessoa precisa rolar. | Barra fixa no rodapé da tela do percurso: **Emergência** (vermelho, segurar 1 s), Ajuda, Finalizar. |
-| U2 | **Sem "Esqueci minha senha"** no login — quem esquece fica sem acesso no dia do evento. | Link "Esqueci minha senha" (e-mail do Supabase Auth, gratuito). |
-| U3 | **Ordem da tela do percurso**: mapa grande primeiro, pace depois. Correndo, o que importa é pace, distância e próximo ponto. | Métricas no topo; mapa recolhível ("Ver mapa"). Fonte maior e alto contraste para sol. |
+| U1 ✅ | **Emergência/Ajuda/Finalizar ficam no fim da tela**, abaixo do mapa e de todo o painel de métricas — em uma emergência a pessoa precisa rolar. | Barra fixa no rodapé da tela do percurso: **Emergência** (vermelho, segurar 1 s), Ajuda, Finalizar. |
+| U2 ✅ | **Sem "Esqueci minha senha"** no login — quem esquece fica sem acesso no dia do evento. | Link "Esqueci minha senha" (e-mail do Supabase Auth, gratuito). |
+| U3 ✅ | **Ordem da tela do percurso**: mapa grande primeiro, pace depois. Correndo, o que importa é pace, distância e próximo ponto. | Métricas no topo; mapa recolhível ("Ver mapa"). Fonte maior e alto contraste para sol. |
 
 ### P1
 | # | Problema | Proposta |

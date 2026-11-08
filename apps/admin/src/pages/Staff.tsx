@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { isEmail } from '@mb/core';
-import { api, run } from '../lib';
+import { api, run, runOk } from '../lib';
+import { confirmDialog, toast } from '../components/Feedback';
 
 type Member = { id: string; display_name: string; email: string };
 
@@ -21,8 +22,9 @@ export function Staff() {
 
   async function add(e: FormEvent) {
     e.preventDefault();
-    if (!isEmail(email)) return alert('Informe um e-mail válido.');
-    if (await run('admin.staff_add', () => api.setStaff(email, true)) !== undefined) {
+    if (!isEmail(email)) return toast('Informe um e-mail válido.', 'error');
+    if (await runOk('admin.staff_add', () => api.setStaff(email, true))) {
+      toast(`${email} agora é organizador.`);
       setEmail('');
       await load();
     }
@@ -46,7 +48,7 @@ export function Staff() {
                 <td>{m.email}</td>
                 <td>{m.id !== me && (
                   <button className="secondary" onClick={async () => {
-                    if (confirm(`Remover ${m.display_name} da equipe?`)) {
+                    if (await confirmDialog({ title: `Remover ${m.display_name} da equipe?`, body: 'A pessoa perde acesso ao painel e à área da organização no app.', confirmLabel: 'Remover', danger: true })) {
                       await run('admin.staff_remove', () => api.setStaff(m.email, false));
                       await load();
                     }

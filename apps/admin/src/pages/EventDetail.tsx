@@ -1,14 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { analyzeCrowd, SESSION_ACTIONS, summarize, type Alert, type Checkpoint, type LiveParticipant, type Session } from '@mb/core';
-import { api, fmtTime, run, supabase } from '../lib';
+import { api, fmtTime, run, runOk, supabase } from '../lib';
 import { Map } from '../components/Map';
 import { RouteEditor } from '../components/RouteEditor';
 import { ALERT_LABEL } from '../components/AlertCenter';
 import { ReportTab } from '../components/ReportTab';
 import { PeopleTab } from '../components/PeopleTab';
+import { confirmDialog, toast } from '../components/Feedback';
 
 const TABS = { monitor: 'Monitoramento', participantes: 'Participantes', alertas: 'Alertas', relatorio: 'Relatório', percurso: 'Percurso' } as const;
 type Tab = keyof typeof TABS;
+const STATUS_PT = { draft: 'Rascunho', published: 'Publicado', live: 'Ao vivo', ended: 'Encerrado', archived: 'Arquivado' } as const;
 const REASON = { stale: 'Sem sinal', off_route: 'Fora do percurso', behind: 'Retardatário' } as const;
 
 /** `extra` na URL: no monitoramento, pessoa em foco; em participantes, `f-<filtro>` ou pessoa com perfil aberto. */
@@ -65,29 +67,45 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
   const highlight = open_ ? new Set(open_.ids) : undefined;
   const toggle = (key: string) => setGroup((g) => (g === key ? null : key));
 
+  const DONE: Record<string, string> = { published: 'Evento publicado: já aparece no app.', live: 'Evento iniciado: participantes já podem começar.', draft: 'Evento voltou para rascunho.', ended: 'Evento encerrado.', archived: 'Evento arquivado.' };
   async function setStatus(to: Session['status']) {
-    if (to === 'ended' && !confirm('Encerrar o evento finaliza o rastreamento de todos. Continuar?')) return;
-    await run('admin.set_status', () => api.setStatus(id, to), { session_id: id, to });
+    if (to === 'ended' && !(await confirmDialog({
+      title: 'Encerrar o evento?', body: 'O rastreamento de todos os participantes termina agora. Não dá para desfazer.',
+      confirmLabel: 'Encerrar evento', danger: true, typeToConfirm: 'ENCERRAR',
+    }))) return;
+    if (await runOk('admin.set_status', () => api.setStatus(id, to), { session_id: id, to })) toast(DONE[to]);
     await reload();
   }
+  async function deleteTest() {
+    if (!(await confirmDialog({ title: 'Apagar esta sessão de teste?', body: 'Todos os dados dela (participantes, posições, alertas) serão apagados.', confirmLabel: 'Apagar teste', danger: true }))) return;
+    if (await runOk('admin.delete_test', () => api.deleteTestSession(id))) {
+      toast('Sessão de teste apagada.');
+      location.hash = '#/eventos';
+    }
+  }
+  // Laranja só para o próximo passo positivo; o resto (inclusive encerrar/apagar) fica no menu.
+  const actions = SESSION_ACTIONS[session.status];
+  const primary = actions.find((a) => a.to === 'published' || a.to === 'live');
+  const more = actions.filter((a) => a !== primary);
 
   return (
     <>
       <div className="row page-head">
         <div style={{ marginRight: 'auto' }}>
           <h1>{session.name}</h1>
-          <span className={`status-pill ${session.status}`}>{session.status === 'live' ? 'Ao vivo' : session.status}</span>
+          <span className={`status-pill ${session.status}`}>{STATUS_PT[session.status]}</span>
         </div>
-        {SESSION_ACTIONS[session.status].map((a) => (
-          <button key={a.to} className={a.to === 'draft' ? 'secondary' : ''} onClick={() => setStatus(a.to)}>{a.label} →</button>
-        ))}
-        {session.is_test && (
-          <button className="secondary" onClick={async () => {
-            if (confirm('Apagar esta sessão de teste e todos os dados dela?')) {
-              await run('admin.delete_test', () => api.deleteTestSession(id));
-              location.hash = '#/eventos';
-            }
-          }}>Apagar teste</button>
+        {primary && <button onClick={() => setStatus(primary.to)}>{primary.label} →</button>}
+        {(more.length > 0 || session.is_test) && (
+          <details className="menu">
+            <summary className="btn secondary">Mais ações ▾</summary>
+            <div className="menu-list" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
+              {more.map((a) => (
+                <button key={a.to} className={a.to === 'ended' ? 'danger-text' : 'secondary'} onClick={() => setStatus(a.to)}>{a.label}{a.to === 'ended' ? '…' : ''}</button>
+              ))}
+              {session.is_test && <button className="danger-text" onClick={deleteTest}>Apagar teste…</button>}
+            </div>
+          </details>
         )}
       </div>
 
@@ -189,7 +207,7 @@ export function EventDetail({ id, tab: initialTab, extra }: { id: string; tab?: 
 
       {tab === 'relatorio' && <ReportTab sessionId={id} alerts={alerts} checkpoints={checkpoints} />}
 
-      {tab === 'percurso' && <RouteEditor sessionId={id} initial={checkpoints} onSaved={setCheckpoints} />}
+      {tab === 'percurso' && <RouteEditor sessionId={id} initial={checkpoints} onSaved={setCheckpoints} status={session.status} />}
     </>
   );
 }

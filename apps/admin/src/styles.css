@@ -150,13 +150,17 @@ b.low { color: var(--danger); }
 /* Celular: o painel é usado em campo */
 @media (max-width: 700px) {
   body { font-size: 14px; }
-  /* Cabeçalho em uma linha só (rola na horizontal) para sobrar tela para o mapa. */
-  header { gap: 12px; padding: 8px 12px; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-  header::-webkit-scrollbar { display: none; }
-  header .brand { font-size: 13px; margin-right: 4px; white-space: nowrap; }
+  /* Cabeçalho: logo + alertas + ☰ sempre visíveis; navegação abre em lista. */
+  header { gap: 10px; padding: 8px 12px; flex-wrap: wrap; }
+  header .brand { font-size: 13px; white-space: nowrap; }
   header .brand .full { display: none; }
-  header a { font-size: 11.5px; white-space: nowrap; }
-  header button { min-height: 32px; padding: 4px 10px; white-space: nowrap; flex-shrink: 0; }
+  header .menu-toggle { display: inline-flex; }
+  header .nav { display: none; order: 9; width: 100%; flex-direction: column; align-items: stretch; gap: 2px; padding-top: 6px; border-top: 1px solid rgba(255,255,255,.12); }
+  header.menu-open .nav { display: flex; }
+  header .nav a { padding: 12px 6px; font-size: 13px; border-radius: 6px; }
+  header .nav a.current { background: rgba(255,255,255,.08); }
+  header .nav .logout { margin-top: 6px; }
+  header .signal { margin-left: auto; min-height: 34px; padding: 4px 10px; }
   main { padding: 12px 10px 32px; gap: 12px; }
   .hide-sm { display: none; }
   .page-head { align-items: flex-start; }
@@ -208,3 +212,34 @@ button.linkish:hover { color: var(--orange-dark); }
 @media (max-width: 700px) { .funnel-detail { grid-template-columns: 1fr; } }
 .map-link { color: var(--orange-dark); }
 .leaflet-popup-content a { color: var(--orange-dark); font-weight: 700; }
+
+/* Cabeçalho: navegação e menu */
+header .nav { gap: 18px; align-items: center; order: 2; }
+@media (min-width: 701px) { header .nav { display: flex; } }
+header .signal { order: 3; }
+header .nav a.current { opacity: 1; box-shadow: inset 0 -2px 0 var(--orange); }
+header .nav .logout { color: var(--white); border-color: rgba(255,255,255,.6); }
+@media (min-width: 701px) { header .menu-toggle { display: none; } }
+header .menu-toggle { order: 4; background: transparent; border: 1.5px solid rgba(255,255,255,.35); color: var(--white); min-height: 34px; min-width: 40px; padding: 0 10px; font-size: 18px; }
+
+/* Avisos e confirmações */
+.toasts { position: fixed; z-index: 3000; right: 16px; bottom: 16px; display: grid; gap: 8px; width: min(380px, calc(100vw - 32px)); }
+.toast { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 12px 14px; border-radius: 10px; background: var(--charcoal); color: var(--white); box-shadow: 0 10px 30px rgba(0,0,0,.25); font-size: 14px; border-left: 4px solid var(--ok); animation: modal-in .2s var(--ease) both; }
+.toast.error { border-left-color: var(--danger); } .toast.info { border-left-color: var(--orange); }
+.toast-x { background: transparent !important; border: 0; color: var(--white); min-height: 0; padding: 0 2px; font-size: 18px; box-shadow: none !important; }
+button.danger { background: var(--danger); border-color: var(--danger); }
+button.danger:hover { background: #9e1e16; border-color: #9e1e16; }
+button:disabled { opacity: .45; cursor: not-allowed; }
+.confirm-type { display: grid; gap: 6px; margin-top: 8px; font-size: 14px; }
+details.menu { position: relative; }
+details.menu > summary { list-style: none; cursor: pointer; }
+details.menu > summary::-webkit-details-marker { display: none; }
+.menu-list { position: absolute; right: 0; top: calc(100% + 6px); z-index: 1200; min-width: 220px; display: grid; gap: 2px; padding: 6px; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 12px 32px rgba(0,0,0,.18); }
+.menu-list button { justify-content: flex-start; width: 100%; border: 0; background: transparent; color: var(--charcoal); text-transform: none; letter-spacing: 0; font-weight: 600; box-shadow: none; }
+.menu-list button:hover { background: var(--sand); color: var(--charcoal); }
+.menu-list button.danger-text { color: var(--danger); }
+.menu-list button.danger-text:hover { background: #fdecea; color: var(--danger); }
+@media (max-width: 700px) { .menu-list { right: auto; left: 0; } }
+.warn-box { background: #fff8e6; border-left: 3px solid var(--stale); padding: 8px 10px; border-radius: 0 6px 6px 0; font-size: 13.5px; }
+.unsaved { color: var(--orange-dark); font-weight: 700; font-size: 13px; }
+.forgot { justify-self: center; font-weight: 600 !important; font-size: 14px; }

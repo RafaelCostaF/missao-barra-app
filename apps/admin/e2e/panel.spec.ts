@@ -22,7 +22,6 @@ test('senha errada não entra', async ({ page }) => {
 });
 
 test('cria evento pela interface, marca o percurso e conduz o ciclo de vida', async ({ page }) => {
-  page.on('dialog', (d) => d.accept());
   await login(page);
   const name = `Evento UI ${Date.now()}`;
   await page.getByPlaceholder(/Nome/).fill(name);
@@ -36,13 +35,32 @@ test('cria evento pela interface, marca o percurso e conduz o ciclo de vida', as
   await map.click({ position: { x: 600, y: 300 } });
   await expect(page.locator('tbody tr')).toHaveCount(3);
   await page.locator('tbody tr').first().locator('input').first().fill('Largada');
+  await expect(page.getByText('Alterações não salvas')).toBeVisible();
+  // Sair sem salvar pergunta antes; cancelar mantém o rascunho.
+  await page.getByRole('link', { name: 'Monitoramento' }).click();
+  await expect(page.getByRole('dialog', { name: 'Sair sem salvar o percurso?' })).toBeVisible();
+  await page.getByRole('button', { name: 'Cancelar' }).click();
+  await expect(page.locator('tbody tr')).toHaveCount(3);
   await page.getByRole('button', { name: /salvar percurso/i }).click();
+  await expect(page.locator('.toast')).toContainText('Percurso salvo');
+  await expect(page.getByText('Tudo salvo')).toBeVisible();
   await shot(page, '03-percurso');
 
-  for (const action of ['Publicar', 'Iniciar evento', 'Encerrar evento', 'Arquivar']) {
-    await page.getByRole('button', { name: new RegExp(action) }).click();
-    await expect(page.getByRole('button', { name: new RegExp(action) })).toHaveCount(0);
+  // Próximo passo positivo é o botão principal; encerrar fica no menu e exige digitar ENCERRAR.
+  for (const action of ['Publicar', 'Iniciar evento']) {
+    await page.locator('.page-head').getByRole('button', { name: new RegExp(action) }).click();
+    await expect(page.locator('.page-head').getByRole('button', { name: new RegExp(action) })).toHaveCount(0);
   }
+  await page.getByText('Mais ações').click();
+  await page.getByRole('button', { name: 'Encerrar evento…' }).click();
+  const ask = page.getByRole('dialog', { name: 'Encerrar o evento?' });
+  await expect(ask.getByRole('button', { name: 'Encerrar evento' })).toBeDisabled();
+  await ask.getByLabel('Texto de confirmação').fill('encerrar');
+  await ask.getByRole('button', { name: 'Encerrar evento' }).click();
+  await expect(page.locator('.status-pill')).toHaveText('Encerrado');
+  await page.getByText('Mais ações').click();
+  await page.getByRole('button', { name: 'Arquivar' }).click();
+  await expect(page.locator('.status-pill')).toHaveText('Arquivado');
   await page.reload();
   await page.getByRole('link', { name: 'Percurso', exact: true }).click();
   await expect(page.locator('tbody input').first()).toHaveValue('Largada'); // salvou no banco
