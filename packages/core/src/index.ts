@@ -14,3 +14,4 @@ export * from './people';
 export * from './validation';
 export * from './directory';
 export * from './strava';
+export * from './run';

@@ -1,6 +1,7 @@
 import type { Logger } from './logger';
 import type { PositionQueue } from './queue';
 import type { Fix } from './types';
+import { createRunStats } from './run';
 
 export type PermissionResult = 'granted' | 'denied';
 
@@ -28,6 +29,8 @@ const ENDED_BY_SERVER = /not tracking/;
 export function createTracker(deps: { location: LocationProvider; api: TrackingApi; queue: PositionQueue; logger: Logger }) {
   const { location, api, queue, logger } = deps;
   let state: TrackerState = 'idle';
+  /** Métricas do corredor (pace, parciais) calculadas no aparelho a partir dos mesmos fixes enviados. */
+  const stats = createRunStats();
   const listeners = new Set<(s: TrackerState) => void>();
   const set = (s: TrackerState) => {
     state = s;
@@ -38,6 +41,7 @@ export function createTracker(deps: { location: LocationProvider; api: TrackingA
     get state() {
       return state;
     },
+    stats,
     subscribe(fn: (s: TrackerState) => void) {
       listeners.add(fn);
       return () => void listeners.delete(fn);
@@ -52,6 +56,7 @@ export function createTracker(deps: { location: LocationProvider; api: TrackingA
       try {
         await logger.timed('api.start_tracking', () => api.startTracking(sessionId));
         await queue.reset(sessionId);
+        stats.reset();
         await location.start();
         await logger.info('session.start', { session_id: sessionId });
         set('tracking');
@@ -66,6 +71,7 @@ export function createTracker(deps: { location: LocationProvider; api: TrackingA
     /** Chamado pela task de localização; também funciona com o app em 2º plano. */
     async onFixes(fixes: Fix[]) {
       if (!(await queue.activeSession())) return;
+      stats.add(fixes);
       await queue.add(fixes);
       await queue.flush();
       // Encerrado no servidor: desliga o GPS para não gastar bateria nem tentar para sempre.

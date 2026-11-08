@@ -2,23 +2,22 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import { getSignalState, nextCheckpoint, profileMissing, type TrackerState } from '@mb/core';
-import { Body, Button, FadeIn, Screen, SignalBadge, Stat, Title } from '@/components/ui';
+import { getSignalState, profileMissing, type TrackerState } from '@mb/core';
+import { Body, Button, FadeIn, Screen, SignalBadge, Title } from '@/components/ui';
 import { c, radius, shadow } from '@/theme';
 import { LiveMap } from '@/components/LiveMap';
+import { RunPanel } from '@/components/RunPanel';
 import { useLiveSession } from '@/hooks/useLiveSession';
 import { useNow } from '@/hooks/useNow';
 import { useKeepAwake } from 'expo-keep-awake';
 import { backgroundSupported, hasBackgroundPermission } from '@/lib/location';
 import { api, logContext, logger, tracker } from '@/lib/services';
 
-const km = (m: number) => `${(m / 1000).toFixed(1).replace('.', ',')} km`;
-
 /** Tela única de monitoramento: evento oficial e corrida privada só diferem nos botões disponíveis. */
 export default function SessionScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { session, participants, checkpoints, alerts, reload } = useLiveSession(id);
-  const now = useNow();
+  const now = useNow(5_000); // métricas do corredor atualizam a cada 5 s
   const [me, setMe] = useState('');
   const [consent, setConsent] = useState(false);
   const [trackerState, setTrackerState] = useState<TrackerState>(tracker.state);
@@ -42,7 +41,6 @@ export default function SessionScreen() {
   const isOwner = session.owner_id === me;
   const signal = mine ? getSignalState(mine as never, now) : 'not_started';
   const tracking = mine?.status === 'tracking';
-  const next = tracking ? nextCheckpoint(checkpoints, mine!.distance_m) : null;
   const others = participants.filter((p) => p.user_id !== me && ['accepted', 'tracking', 'finished'].includes(p.status));
   const openAlerts = alerts.filter((a) => !a.resolved_at);
 
@@ -103,15 +101,12 @@ export default function SessionScreen() {
               <SignalBadge state={signal} />
               {tracking && <Body muted small>Você está sendo monitorado</Body>}
             </View>
-            {tracking && (
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                <Stat label="Percorrido" value={km(mine!.distance_m)} />
-                <Stat label={next ? `Próximo · km ${next.km}` : 'Próximo apoio'} value={next?.name ?? '—'} />
-                <Stat label="Atualizado" value={mine?.last_at ? new Date(mine.last_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : '—'} />
-              </View>
-            )}
           </View>
         </FadeIn>
+
+        {mine && (tracking || mine.status === 'finished') && (
+          <RunPanel sessionId={id} me={mine} participants={participants} checkpoints={checkpoints} now={now} />
+        )}
 
         {tracking && !backgroundSupported && <KeepAwake />}
         {tracking && !backgroundSupported && <Notice icon="phone-portrait-outline" text="Modo de teste (Expo Go): mantenha o app aberto. A tela fica ligada enquanto você é monitorado." />}
@@ -140,7 +135,7 @@ export default function SessionScreen() {
             <FadeIn>
               <View style={st.card}>
                 <Body>
-                  Ao iniciar, sua localização será enviada {official ? 'à equipe de apoio da Missão Barra' : 'aos amigos que aceitaram esta corrida'} a cada
+                  Ao iniciar, sua localização será enviada {official ? 'à equipe de apoio da Missão Barra e aparecerá para os outros participantes do evento (para ver quem corre perto)' : 'aos amigos que aceitaram esta corrida'} a cada
                   ~20 segundos até você tocar em Finalizar.
                 </Body>
                 <Button icon="shield-checkmark-outline" label="Entendi, quero compartilhar" onPress={() => setConsent(true)} />
