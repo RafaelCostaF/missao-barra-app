@@ -39,12 +39,26 @@ const total = routeLength(route);
 const SPEEDUP = Number(process.env.SIM_SPEEDUP ?? 20); // acelera a caminhada (~1,4 m/s) para ver movimento no mapa
 const password = 'simulacao-missao-barra-2026';
 
+async function findUser(email: string) {
+  for (let page = 1; page <= 20; page++) {
+    const { data } = await admin.auth.admin.listUsers({ page, perPage: 200 });
+    const u = data.users.find((x) => x.email === email);
+    if (u || data.users.length < 200) return u?.id;
+  }
+}
+
 console.log(`Simulando ${n} participantes em "${session.name}" (${staleCount} perdem sinal, ${emergencies} emergência)…`);
 const sims = await Promise.all(Array.from({ length: n }, async (_, i) => {
   const email = `sim-${i}@sim.missaobarra.test`;
-  await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: `Simulado ${i + 1}` } }).catch(() => undefined);
+  const created = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: { display_name: `Simulado ${i + 1}` } });
   const api = createApi(createClient(url, anon, { auth: { persistSession: false, autoRefreshToken: false } }));
-  await api.signIn(email, password);
+  await api.signIn(email, password).catch(async () => {
+    // Conta fictícia de uma simulação antiga, com outra senha: redefine (só contas sim-*@sim.missaobarra.test).
+    const id = created.data.user?.id ?? (await findUser(email));
+    if (!id) throw new Error(`Conta simulada não encontrada: ${email}`);
+    await admin.auth.admin.updateUserById(id, { password });
+    await api.signIn(email, password);
+  });
   // Conta fictícia: cadastro completo marcado direto (service role) para poder iniciar evento oficial.
   await admin.from('profile_contacts').upsert({ user_id: await api.me(), phone: `+55719${String(i).padStart(8, '0')}`, phone_verified_at: new Date().toISOString(), photo_path: 'simulado', registration_number: `SIM-${i + 1}` });
   await api.joinEvent(session.id);
