@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  averagePaceS, createRunStats, currentKm, etaTo, fmtClock, fmtPace, nearbyRunners, racePosition, routeEtas, routeProgress,
+  averagePaceS, createRunStats, etaTo, routeStatus, fmtClock, fmtPace, nearbyRunners, racePosition, routeEtas, routeProgress,
   type Checkpoint, type Fix, type LiveParticipant,
 } from '../src';
 
@@ -58,8 +58,6 @@ describe('percurso e estimativas', () => {
     const p = routeProgress({ lat: LAT + 0.0005, lng: west(4200) }, cps)!;
     expect(p.km).toBeCloseTo(4.2, 1);
     expect(p.offRouteM).toBeLessThan(80);
-    expect(currentKm({ lat: LAT, lng: west(4200) }, 9999, cps)).toBeCloseTo(4.2, 1);
-    expect(currentKm({ lat: LAT + 0.05, lng: west(4200) }, 3900, cps)).toBe(3.9); // longe do percurso: usa o GPS
     const { next, finish } = routeEtas(cps, 4.2, 360, T0);
     expect(next).toMatchObject({ name: 'Jardim de Alah', remainingM: 5800 });
     expect(Math.round(next!.etaS!)).toBe(2088); // 5,8 km × 6:00
@@ -67,6 +65,32 @@ describe('percurso e estimativas', () => {
     expect(new Date(finish!.at!).getTime()).toBe(T0 + 15.8 * 360 * 1000);
     expect(routeEtas(cps, 20, 360).finish).toBeNull();
     expect(etaTo(cps[1], 4.2, null).etaS).toBeNull();
+  });
+});
+
+describe('a partir de onde a pessoa está (nunca do ponto zero)', () => {
+  it('começando no meio do percurso: km e próximo ponto pela posição', () => {
+    const r = routeStatus({ lat: LAT, lng: west(12_300) }, cps, 360, T0);
+    expect(r.onRoute).toBe(true);
+    expect(r.kmNow).toBeCloseTo(12.3, 1);
+    expect(r.next).toMatchObject({ name: 'Barra' });
+    expect(r.next!.remainingM).toBeCloseTo(7700, -2);
+    expect(r.next!.straight).toBeUndefined();
+  });
+  it('fora do percurso: próximo é o ponto mais perto, em linha reta; chegada soma o resto do percurso', () => {
+    // ~1,1 km ao norte do km 9,5 → o ponto mais perto é o Jardim de Alah (km 10).
+    const r = routeStatus({ lat: LAT + 0.01, lng: west(9_500) }, cps, 360, T0);
+    expect(r.onRoute).toBe(false);
+    expect(r.kmNow).toBeNull();
+    expect(r.next).toMatchObject({ name: 'Jardim de Alah', straight: true });
+    expect(r.next!.remainingM).toBeGreaterThan(1000);
+    expect(r.next!.remainingM).toBeLessThan(1300);
+    expect(r.finish!.remainingM).toBeCloseTo(r.next!.remainingM + 10_000, 0);
+    expect(r.next!.etaS).toBeCloseTo((r.next!.remainingM / 1000) * 360, 0);
+  });
+  it('sem posição ou sem percurso: não inventa', () => {
+    expect(routeStatus(null, cps, 360).next).toBeNull();
+    expect(routeStatus({ lat: LAT, lng: LNG }, [], 360).next).toBeNull();
   });
 });
 

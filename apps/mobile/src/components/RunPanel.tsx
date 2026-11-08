@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LiveMap } from '@/components/LiveMap';
 import * as Battery from 'expo-battery';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
-  averagePaceS, currentKm, fmtClock, fmtPace, nearbyRunners, racePosition, routeEtas,
+  averagePaceS, fmtClock, fmtPace, nearbyRunners, racePosition, routeStatus,
   type Checkpoint, type Eta, type LiveParticipant,
 } from '@mb/core';
 import { FadeIn } from '@/components/ui';
@@ -54,12 +55,18 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
   // Pace para estimativas: atual (últimos ~3 min) → em movimento → médio.
   const paceForEta = live.currentPaceS ?? live.movingPaceS ?? avgPace;
   const pos = me.last_lat != null ? { lat: me.last_lat, lng: me.last_lng! } : null;
-  const kmNow = currentKm(pos, me.distance_m, checkpoints);
-  const { next, finish } = routeEtas(checkpoints, kmNow, paceForEta, now);
+  // Sempre a partir da posição real: no percurso, próximo ponto à frente; fora dele, o ponto mais perto.
+  const where = routeStatus(pos, checkpoints, paceForEta, now);
+  const { next, finish, kmNow } = where;
   const others = participants.filter((p) => p.user_id !== me.user_id);
-  const near = pos ? nearbyRunners(pos, checkpoints.length > 1 ? kmNow : null, others, checkpoints, 2000, now).slice(0, 5) : [];
+  const near = pos ? nearbyRunners(pos, kmNow, others, checkpoints, 2000, now).slice(0, 5) : [];
   const rank = racePosition(me.user_id, participants);
   const heroPace = live.currentPaceS ?? avgPace;
+  const [showMap, setShowMap] = useState(true);
+  // Caminho à frente: da posição até os próximos pontos (fora do percurso: tracejado até o mais perto).
+  const route = [...checkpoints].sort((a, b) => a.km - b.km);
+  const target = next ? route.find((c) => c.name === next.name && c.km === next.km) : null;
+  const ahead = !pos ? [] : where.onRoute ? [pos, ...route.filter((c) => c.km > kmNow!)] : target ? [pos, target] : [];
 
   if (finished) {
     return (
@@ -80,6 +87,29 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
 
   return (
     <View style={{ gap: 10 }}>
+      {/* Mapa de quem está correndo: segue você, mostra o caminho à frente e quem está perto. */}
+      <Pressable onPress={() => setShowMap((v) => !v)} style={st.mapToggle} accessibilityRole="button" accessibilityState={{ expanded: showMap }}>
+        <Ionicons name={showMap ? 'chevron-up' : 'map-outline'} size={15} color={c.charcoal} />
+        <Text style={st.mapToggleText}>{showMap ? 'Esconder mapa' : 'Mostrar mapa'}</Text>
+      </Pressable>
+      {showMap && (
+        <View style={st.map}>
+          <LiveMap participants={participants} checkpoints={checkpoints} now={now}
+            runner={{
+              me: pos, ahead, aheadStraight: !where.onRoute,
+              overlay: (
+                <View style={st.chip}>
+                  <Text style={st.chipPace}>{fmtPace(heroPace)}<Text style={st.chipUnit}> /km</Text></Text>
+                  {next && (
+                    <Text style={st.chipNext} numberOfLines={1}>
+                      {next.name} · {km(next.remainingM)} km{next.etaS != null ? ` · ~${fmtClock(next.etaS)}` : ''}
+                    </Text>
+                  )}
+                </View>
+              ),
+            }} />
+        </View>
+      )}
       <FadeIn>
         <View style={st.hero}>
           <Text style={st.heroLabel}>{live.currentPaceS ? 'Pace atual' : 'Pace médio'}</Text>
@@ -101,10 +131,15 @@ export function RunPanel({ sessionId, me, participants, checkpoints, now }: {
       {(next || finish) && (
         <FadeIn index={1}>
           <View style={st.card}>
-            {next && <EtaRow icon="flag-outline" title={`Próximo ponto · ${next.name}`} eta={next} />}
+            {next && <EtaRow icon="flag-outline" title={`${next.straight ? 'Ponto mais perto' : 'Próximo ponto'} · ${next.name}`} eta={next} />}
             {finish && finish.name !== next?.name && <EtaRow icon="trophy-outline" title={`Chegada · ${finish.name}`} eta={finish} total={finish.etaS != null ? elapsedS + finish.etaS : null} />}
             {next && finish?.name === next.name && finish.etaS != null && <Text style={st.muted}>Tempo total previsto: {fmtClock(elapsedS + finish.etaS)}</Text>}
-            <Text style={st.muted}>Estimativa no {live.currentPaceS ? 'pace atual' : 'pace médio'} ({fmtPace(paceForEta)}/km) · você está no km {kmNow.toFixed(1).replace('.', ',')}</Text>
+            <Text style={st.muted}>
+              {where.onRoute
+                ? `Você está no km ${kmNow!.toFixed(1).replace('.', ',')} do percurso`
+                : `Fora do percurso (a ${meters(where.offRouteM ?? 0)}): distâncias em linha reta até o ponto mais perto`}
+              {paceForEta ? ` · estimativa no ${live.currentPaceS ? 'pace atual' : 'pace médio'} (${fmtPace(paceForEta)}/km)` : ''}
+            </Text>
           </View>
         </FadeIn>
       )}
@@ -158,7 +193,7 @@ function EtaRow({ icon, title, eta, total }: { icon: keyof typeof Ionicons.glyph
         <Text style={st.title} numberOfLines={1}>{title}</Text>
       </View>
       <Text style={st.etaBig}>
-        faltam {km(eta.remainingM)} km{eta.etaS != null ? <Text style={st.etaSoft}> · ~{fmtClock(eta.etaS)} · chegada {hhmm(eta.at)}</Text> : null}
+        {eta.straight ? 'a ' : 'faltam '}{km(eta.remainingM)} km{eta.etaS != null ? <Text style={st.etaSoft}> · ~{fmtClock(eta.etaS)} · chegada {hhmm(eta.at)}</Text> : null}
       </Text>
       {total != null && <Text style={st.muted}>Tempo total previsto: {fmtClock(total)}</Text>}
     </View>
@@ -193,6 +228,13 @@ function Status({ icon, text, warn }: { icon: keyof typeof Ionicons.glyphMap; te
 }
 
 const st = StyleSheet.create({
+  map: { height: 340, borderRadius: radius, overflow: 'hidden', borderWidth: 1, borderColor: c.line },
+  mapToggle: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-end', paddingVertical: 4, paddingHorizontal: 6 },
+  mapToggleText: { fontFamily: font.bold, fontSize: 12, color: c.charcoal, textTransform: 'uppercase', letterSpacing: 0.5 },
+  chip: { flexDirection: 'row', alignItems: 'baseline', gap: 10, backgroundColor: 'rgba(29,30,34,0.88)', borderRadius: radius, paddingHorizontal: 12, paddingVertical: 8 },
+  chipPace: { fontFamily: font.display, fontSize: 24, color: c.white },
+  chipUnit: { fontFamily: font.bold, fontSize: 12, color: c.sand },
+  chipNext: { flex: 1, fontFamily: font.bold, fontSize: 13, color: c.sand },
   hero: { backgroundColor: c.charcoal, borderRadius: radius + 2, padding: 16, gap: 12, ...shadow },
   heroLabel: { fontFamily: font.bold, color: c.orangeLight, fontSize: 11.5, letterSpacing: 1.4, textTransform: 'uppercase' },
   heroSub: { fontFamily: font.body, color: c.sand, fontSize: 12 },

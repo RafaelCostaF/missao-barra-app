@@ -46,8 +46,8 @@ export default function SessionScreen() {
   const tracking = mine?.status === 'tracking';
   const others = participants.filter((p) => p.user_id !== me && ['accepted', 'tracking', 'finished'].includes(p.status));
   const openAlerts = alerts.filter((a) => !a.resolved_at);
-  // Mapa aberto por padrão antes de começar; recolhido durante o percurso (a pessoa escolhe).
-  const mapOpen = showMap ?? !tracking;
+  // Mapa geral aberto por padrão fora do percurso (correndo, o painel mostra o mapa de corredor).
+  const mapOpen = showMap ?? true;
 
   /** Executa e recarrega; devolve false (e avisa) se falhou. */
   async function act(name: string, fn: () => Promise<unknown>) {
@@ -120,11 +120,14 @@ export default function SessionScreen() {
           <RunPanel sessionId={id} me={mine} participants={participants} checkpoints={checkpoints} now={now} />
         )}
 
+        {/* Correndo, o mapa de corredor fica dentro do painel; antes/depois, o mapa geral do percurso. */}
+        {!tracking && (
         <Pressable onPress={() => setShowMap((v) => !v)} style={st.mapToggle} accessibilityRole="button" accessibilityState={{ expanded: mapOpen }}>
           <Ionicons name={mapOpen ? 'chevron-up' : 'map-outline'} size={16} color={c.charcoal} />
           <Text style={st.mapToggleText}>{mapOpen ? 'Esconder mapa' : 'Ver mapa'}</Text>
         </Pressable>
-        {mapOpen && (
+        )}
+        {!tracking && mapOpen && (
           <FadeIn>
             <View style={st.map}>
               <LiveMap participants={participants} checkpoints={checkpoints} now={now} />

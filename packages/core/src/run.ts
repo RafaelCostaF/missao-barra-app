@@ -144,13 +144,11 @@ export function routeProgress(p: Point, checkpoints: Checkpoint[]): RouteProgres
 /** Acima disso a projeção no percurso não é confiável: usa a distância medida pelo GPS. */
 export const ROUTE_TRUST_M = 300;
 
-/** km atual: pela posição no percurso quando perto dele; senão pela distância percorrida. */
-export function currentKm(pos: Point | null, distanceM: number, checkpoints: Checkpoint[]) {
-  const prog = pos ? routeProgress(pos, checkpoints) : null;
-  return prog && prog.offRouteM <= ROUTE_TRUST_M ? prog.km : distanceM / 1000;
+export interface Eta {
+  name: string; km: number; remainingM: number; etaS: number | null; at: string | null;
+  /** Distância em linha reta (pessoa fora do percurso), não pelo percurso. */
+  straight?: boolean;
 }
-
-export interface Eta { name: string; km: number; remainingM: number; etaS: number | null; at: string | null }
 
 /** Faltam X km até o ponto, estimativa no pace informado (s/km) e horário previsto de chegada. */
 export function etaTo(target: { name: string; km: number }, kmNow: number, paceS: number | null, now = Date.now()): Eta {
@@ -167,6 +165,41 @@ export function routeEtas(checkpoints: Checkpoint[], kmNow: number, paceS: numbe
   return {
     next: next ? etaTo(next, kmNow, paceS, now) : null,
     finish: finish && finish.km > kmNow + 0.02 ? etaTo(finish, kmNow, paceS, now) : null,
+  };
+}
+
+export interface RouteStatus {
+  /** Perto da linha do percurso (≤ ROUTE_TRUST_M). */
+  onRoute: boolean;
+  /** km do percurso onde a pessoa está; null fora do percurso ou sem posição. */
+  kmNow: number | null;
+  offRouteM: number | null;
+  next: Eta | null;
+  finish: Eta | null;
+}
+
+/**
+ * Onde a pessoa está em relação ao percurso — sempre a partir da posição real, nunca do ponto zero.
+ * No percurso: próximo ponto à frente pelo km. Fora dele: o ponto de apoio mais perto (em linha reta),
+ * e a chegada soma essa distância ao trecho que falta a partir desse ponto. Sem posição: nada (não chuta).
+ */
+export function routeStatus(pos: Point | null, checkpoints: Checkpoint[], paceS: number | null, now = Date.now()): RouteStatus {
+  const route = [...checkpoints].sort((a, b) => a.km - b.km);
+  const none: RouteStatus = { onRoute: false, kmNow: null, offRouteM: null, next: null, finish: null };
+  if (!pos || !route.length) return none;
+  const prog = route.length > 1 ? routeProgress(pos, route) : null;
+  if (prog && prog.offRouteM <= ROUTE_TRUST_M) return { onRoute: true, kmNow: prog.km, offRouteM: prog.offRouteM, ...routeEtas(route, prog.km, paceS, now) };
+
+  const eta = (c: Checkpoint, remainingM: number): Eta => {
+    const etaS = paceS ? (remainingM / 1000) * paceS : null;
+    return { name: c.name, km: c.km, remainingM, etaS, at: etaS != null ? new Date(now + etaS * 1000).toISOString() : null, straight: true };
+  };
+  const nearest = route.map((c) => ({ c, d: haversine(pos, c) })).sort((a, b) => a.d - b.d)[0];
+  const last = route.at(-1)!;
+  return {
+    onRoute: false, kmNow: null, offRouteM: prog?.offRouteM ?? nearest.d,
+    next: eta(nearest.c, nearest.d),
+    finish: last === nearest.c ? null : eta(last, nearest.d + (last.km - nearest.c.km) * 1000),
   };
 }
 
