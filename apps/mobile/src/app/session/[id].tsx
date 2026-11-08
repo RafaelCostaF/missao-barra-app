@@ -8,6 +8,8 @@ import { Body, Button, FadeIn, Screen, StatusDot } from '@/components/ui';
 import { c, font, radius, shadow } from '@/theme';
 import { LiveMap } from '@/components/LiveMap';
 import { RunPanel } from '@/components/RunPanel';
+import { RunnerView } from '@/components/RunnerView';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLiveSession } from '@/hooks/useLiveSession';
 import { useNow } from '@/hooks/useNow';
 import { useKeepAwake } from 'expo-keep-awake';
@@ -103,9 +105,11 @@ export default function SessionScreen() {
     ]);
   }
 
-  return (
-    <Screen>
-      {/* Cabeçalho: "Percurso" com o nome do evento como subtítulo; o selo de sinal explica o monitoramento. */}
+  const otherAlerts = openAlerts.filter((a) => a.user_id !== me && (a.type === 'help' || a.type === 'emergency'))
+    .map((a) => `${participants.find((p) => p.user_id === a.user_id)?.display_name ?? 'Alguém'} ${a.type === 'emergency' ? 'acionou emergência' : 'pediu ajuda'} às ${new Date(a.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`);
+
+  // Cabeçalho: "Percurso" com o nome do evento como subtítulo; o selo de sinal explica o monitoramento.
+  const header = (
       <Stack.Screen options={{
         headerTitle: () => (
           <View style={{ alignItems: Platform.OS === 'ios' ? 'center' : 'flex-start', maxWidth: 240 }}>
@@ -115,14 +119,45 @@ export default function SessionScreen() {
         ),
         headerRight: () => (mine ? <StatusDot state={signal} who={official ? 'a organização' : 'quem está nesta corrida com você'} /> : null),
       }} />
+  );
+
+  // Correndo: mapa em tela cheia com o essencial por cima; botões de ação fixos embaixo.
+  if (tracking && mine) {
+    return (
+      <SafeAreaView edges={['bottom']} style={{ flex: 1, backgroundColor: c.white }}>
+        {header}
+        {!backgroundSupported && <KeepAwake />}
+        <RunnerView sessionId={id} me={mine} participants={participants} checkpoints={checkpoints} now={now} route={session.route} notices={otherAlerts} />
+        <View style={st.actionBar}>
+          {/* Lado a lado: ocupa uma faixa só. Emergência maior e vermelha, dispara segurando 1 s. */}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {official && (
+              <View style={{ flex: 1.4 }}>
+                <HoldButton label="Emergência" hint="Segure 1 s para acionar" onHold={raiseEmergency} onTap={() => setHoldHint(true)} />
+              </View>
+            )}
+            {/* Evento oficial: ajuda vira conversa com a organização. Corrida entre amigos: avisa os amigos. */}
+            <BarButton icon={official ? 'chatbubbles-outline' : 'hand-left-outline'} label="Ajuda" onPress={() => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              if (official) router.push(`/help/${id}`);
+              else confirmAlert('help');
+            }} />
+            <BarButton icon="stop-circle-outline" label="Finalizar" busy={busy} onPress={finish} />
+          </View>
+          {holdHint && official && <Text style={st.holdHint}>Segure o botão por 1 segundo para acionar a emergência.</Text>}
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <Screen>
+      {header}
       <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
 
-        {/* Correndo, o que importa vem primeiro: pace, distância, próximo ponto. Mapa sob demanda. */}
-        {mine && (tracking || mine.status === 'finished') && (
-          <RunPanel sessionId={id} me={mine} participants={participants} checkpoints={checkpoints} now={now} path={path} />
-        )}
+        {mine?.status === 'finished' && <RunPanel sessionId={id} me={mine} participants={participants} now={now} />}
 
-        {/* Correndo, o mapa de corredor fica dentro do painel; antes/depois, o mapa geral do percurso. */}
+        {/* Antes/depois de correr: mapa geral do percurso. */}
         {!tracking && (
         <Pressable onPress={() => setShowMap((v) => !v)} style={st.mapToggle} accessibilityRole="button" accessibilityState={{ expanded: mapOpen }}>
           <Ionicons name={mapOpen ? 'chevron-up' : 'map-outline'} size={16} color={c.charcoal} />
@@ -137,13 +172,9 @@ export default function SessionScreen() {
           </FadeIn>
         )}
 
-        {tracking && !backgroundSupported && <KeepAwake />}
         {trackerState === 'finished' && mine?.status === 'finished' && <Notice icon="checkmark-circle-outline" tone="ok" text="Participação finalizada. Sua localização não está mais sendo compartilhada." />}
         {/* Só pedidos de ajuda/emergência de outras pessoas ("sem sinal" não é pedido de ajuda). */}
-        {openAlerts.filter((a) => a.user_id !== me && (a.type === 'help' || a.type === 'emergency')).map((a) => (
-          <Notice key={a.id} icon="alert-circle-outline" tone="danger"
-            text={`${participants.find((p) => p.user_id === a.user_id)?.display_name ?? 'Alguém'} ${a.type === 'emergency' ? 'acionou emergência' : 'pediu ajuda'} às ${new Date(a.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`} />
-        ))}
+        {otherAlerts.map((t) => <Notice key={t} icon="alert-circle-outline" tone="danger" text={t} />)}
         {!official && others.length > 0 && <Body muted small>Na corrida: {others.map((o) => o.display_name).join(', ')}</Body>}
 
         {/* Criador da corrida privada controla início/fim para todos. */}
@@ -183,27 +214,6 @@ export default function SessionScreen() {
         )}
       </ScrollView>
 
-      {/* Sempre à mão, sem rolar: emergência, ajuda e finalizar. */}
-      {tracking && (
-        <View style={st.actionBar}>
-          {/* Lado a lado: ocupa uma faixa só. Emergência maior e vermelha, dispara segurando 1 s. */}
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {official && (
-              <View style={{ flex: 1.4 }}>
-                <HoldButton label="Emergência" hint="Segure 1 s para acionar" onHold={raiseEmergency} onTap={() => setHoldHint(true)} />
-              </View>
-            )}
-            {/* Evento oficial: ajuda vira conversa com a organização. Corrida entre amigos: avisa os amigos. */}
-            <BarButton icon={official ? 'chatbubbles-outline' : 'hand-left-outline'} label="Ajuda" onPress={() => {
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              if (official) router.push(`/help/${id}`);
-              else confirmAlert('help');
-            }} />
-            <BarButton icon="stop-circle-outline" label="Finalizar" busy={busy} onPress={finish} />
-          </View>
-          {holdHint && official && <Text style={st.holdHint}>Segure o botão por 1 segundo para acionar a emergência.</Text>}
-        </View>
-      )}
     </Screen>
   );
 }
@@ -263,7 +273,7 @@ const st = StyleSheet.create({
   hSub: { fontFamily: font.body, fontSize: 11.5, color: c.sand },
   mapToggle: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: radius, borderWidth: 1.5, borderColor: c.line, backgroundColor: c.surface },
   mapToggleText: { fontFamily: font.bold, fontSize: 13, color: c.charcoal, textTransform: 'uppercase', letterSpacing: 0.6 },
-  actionBar: { gap: 8, paddingTop: 10, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.white },
+  actionBar: { gap: 8, paddingTop: 10, paddingHorizontal: 12, paddingBottom: 6, borderTopWidth: 1, borderTopColor: c.line, backgroundColor: c.white },
   hold: { height: 64, borderRadius: radius, backgroundColor: c.danger, overflow: 'hidden', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6, ...shadow },
   holdText: { fontFamily: font.bold, fontSize: 13, color: c.white, letterSpacing: 0.8 },
   holdSub: { fontFamily: font.body, fontSize: 10.5, color: '#FFD9D4' },

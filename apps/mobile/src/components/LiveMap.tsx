@@ -1,5 +1,5 @@
 import { kmBR } from '@/lib/fmt';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import Constants from 'expo-constants';
 import MapView, { Marker, Polyline, type MapMarker } from 'react-native-maps';
@@ -19,19 +19,12 @@ const PAD = { top: 48, right: 48, bottom: 48, left: 48 };
  * `focus` centraliza e abre o balão de uma pessoa; `highlight` destaca um grupo; tocar no balão chama `onSelect`.
  * Botão "Centralizar" volta à visão do percurso + participantes.
  */
-export function LiveMap({ participants, checkpoints, now, focus, highlight, onSelect, runner, path }: {
+export function LiveMap({ participants, checkpoints, now, focus, highlight, onSelect, path }: {
   participants: LiveParticipant[]; checkpoints: Checkpoint[]; now: number;
   /** Caminho real pelas ruas; sem ele, liga os pontos de apoio em linha reta. */
   path?: { lat: number; lng: number }[] | null;
   focus?: string | null; highlight?: Set<string>; onSelect?: (userId: string) => void;
-  /**
-   * Modo corredor: a câmera segue a pessoa (perto, virada para onde ela anda), o caminho à frente
-   * fica destacado e `overlay` (pace, próximo ponto) fica sobre o mapa. "Percurso todo" mostra o geral.
-   */
-  runner?: { me: { lat: number; lng: number } | null; ahead: { lat: number; lng: number }[]; aheadStraight?: boolean; overlay?: ReactNode };
 }) {
-  const [following, setFollowing] = useState(true);
-  const heading = useRef(0);
   const map = useRef<MapView>(null);
   const markers = useRef(new Map<string, MapMarker>());
   const fitted = useRef(false);
@@ -47,19 +40,9 @@ export function LiveMap({ participants, checkpoints, now, focus, highlight, onSe
     else map.current?.animateToRegion(SALVADOR, animated ? 400 : 0);
   };
 
-  const follow = (center: { latitude: number; longitude: number }, duration = 600) =>
-    map.current?.animateCamera({ center, zoom: 17, pitch: 35, heading: heading.current }, { duration });
-
-  // Modo corredor: começa já seguindo a pessoa (posição do servidor até o GPS do aparelho responder).
+  // Primeira vez que há dados: enquadra percurso + pessoas.
   useEffect(() => {
-    if (!runner?.me || !following) return;
-    follow({ latitude: runner.me.lat, longitude: runner.me.lng }, 0);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [runner?.me != null]);
-
-  // Primeira vez que há dados: enquadra percurso + pessoas (fora do modo corredor).
-  useEffect(() => {
-    if (runner || fitted.current || !coords.length) return;
+    if (fitted.current || !coords.length) return;
     fitted.current = true;
     setTimeout(() => fit(coords, false), 300);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -84,22 +67,10 @@ export function LiveMap({ participants, checkpoints, now, focus, highlight, onSe
   if (!mapAvailable) return <ListFallback participants={participants} now={now} onSelect={onSelect} />;
   return (
     <View style={{ flex: 1, minHeight: 260 }}>
-      <MapView ref={map} style={{ flex: 1 }} initialRegion={SALVADOR} showsUserLocation
-        showsCompass={!!runner} onPanDrag={runner ? () => setFollowing(false) : undefined}
-        onUserLocationChange={runner ? (e) => {
-          const u = e.nativeEvent.coordinate;
-          if (!u || !following) return;
-          // Vira o mapa para a direção do movimento só quando a pessoa está andando (bússola parada oscila).
-          if (u.heading != null && u.heading >= 0 && (u.speed ?? 0) > 0.7) heading.current = u.heading;
-          follow({ latitude: u.latitude, longitude: u.longitude });
-        } : undefined}>
+      <MapView ref={map} style={{ flex: 1 }} initialRegion={SALVADOR} showsUserLocation>
         {(path?.length ?? checkpoints.length) > 1 && (
           <Polyline coordinates={(path ?? checkpoints).map((p) => ({ latitude: p.lat, longitude: p.lng }))}
-            strokeColor={runner ? 'rgba(217,79,22,0.35)' : c.orange} strokeWidth={runner ? 3 : 4} />
-        )}
-        {runner && runner.ahead.length > 1 && (
-          <Polyline coordinates={runner.ahead.map((p) => ({ latitude: p.lat, longitude: p.lng }))} strokeColor={c.orangeDark} strokeWidth={6}
-            lineDashPattern={runner.aheadStraight ? [8, 8] : undefined} />
+            strokeColor={c.orange} strokeWidth={4} />
         )}
         {checkpoints.map((p) => (
           <Marker key={p.id} coordinate={{ latitude: p.lat, longitude: p.lng }} title={p.name} description={`km ${p.km}`} pinColor={c.orangeDark} />
@@ -121,29 +92,10 @@ export function LiveMap({ participants, checkpoints, now, focus, highlight, onSe
           );
         })}
       </MapView>
-      {runner ? (
-        <>
-          {runner.overlay && <View style={st.overlay} pointerEvents="none">{runner.overlay}</View>}
-          <View style={st.runnerButtons}>
-            <Pressable onPress={() => { setFollowing(false); fit(); }} style={st.recenterInline} accessibilityRole="button" accessibilityLabel="Ver o percurso todo">
-              <Ionicons name="map-outline" size={15} color={c.charcoal} />
-              <Text style={st.recenterText}>Percurso todo</Text>
-            </Pressable>
-            {!following && runner.me && (
-              <Pressable onPress={() => { setFollowing(true); follow({ latitude: runner.me!.lat, longitude: runner.me!.lng }); }}
-                style={[st.recenterInline, { backgroundColor: c.orangeDark }]} accessibilityRole="button" accessibilityLabel="Voltar a seguir minha posição">
-                <Ionicons name="navigate" size={15} color={c.white} />
-                <Text style={[st.recenterText, { color: c.white }]}>Seguir</Text>
-              </Pressable>
-            )}
-          </View>
-        </>
-      ) : (
-        <Pressable onPress={() => fit()} style={st.recenter} accessibilityRole="button" accessibilityLabel="Centralizar mapa no percurso">
-          <Ionicons name="locate" size={16} color={c.charcoal} />
-          <Text style={st.recenterText}>Centralizar</Text>
-        </Pressable>
-      )}
+      <Pressable onPress={() => fit()} style={st.recenter} accessibilityRole="button" accessibilityLabel="Centralizar mapa no percurso">
+        <Ionicons name="locate" size={16} color={c.charcoal} />
+        <Text style={st.recenterText}>Centralizar</Text>
+      </Pressable>
     </View>
   );
 }
@@ -171,7 +123,4 @@ function ListFallback({ participants, now, onSelect }: { participants: LiveParti
 const st = StyleSheet.create({
   recenter: { position: 'absolute', top: 10, right: 10, flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.surface, borderRadius: radius, paddingHorizontal: 10, paddingVertical: 7, ...shadow },
   recenterText: { fontFamily: font.bold, fontSize: 12.5, color: c.charcoal },
-  runnerButtons: { position: 'absolute', top: 10, right: 10, gap: 8, alignItems: 'flex-end' },
-  recenterInline: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: c.surface, borderRadius: radius, paddingHorizontal: 10, paddingVertical: 7, ...shadow },
-  overlay: { position: 'absolute', left: 10, bottom: 10, right: 10 },
 });
