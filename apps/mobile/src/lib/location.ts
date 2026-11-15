@@ -1,10 +1,11 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import * as Location from 'expo-location';
 import * as TaskManager from 'expo-task-manager';
+import { Platform } from 'react-native';
 import { toFix, type Fix, type LocationProvider } from '@mb/core';
 
 /** Expo Go não suporta localização em 2º plano: usa GPS em 1º plano (app aberto). */
-export const backgroundSupported = Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
+export const backgroundSupported = Platform.OS !== 'web' && Constants.executionEnvironment !== ExecutionEnvironment.StoreClient;
 
 let handlers: { onFixes: (f: Fix[]) => Promise<void>; onError: (e: unknown) => Promise<void> } | null = null;
 let foregroundWatch: Location.LocationSubscription | null = null;

@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<title>Missão Barra — palco do vídeo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+  /* Dois layouts: horizontal 1920×1080 (navegador à esquerda, celular à direita) e vertical 1080×1920 (?v=1: navegador em cima, celular embaixo).
+     Legenda da narração e barra de progresso entram na montagem (compose.mts), alinhadas à fala. */
+  :root { --orange: #C93C05; --orange2: #E2611F; --char: #1D1E22; --sand: #EDE3D6; --warm: #FFF8F1; --W: 1920px; --H: 1080px; }
+  .v { --W: 1080px; --H: 1920px; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: var(--W); height: var(--H); overflow: clip; background: #111214; font-family: Inter, sans-serif; }
+  body { position: fixed; inset: 0; }
+  body::before { content: ''; position: absolute; inset: 0;
+    background: radial-gradient(1100px 760px at 78% 45%, rgba(201,60,5,.18), transparent 60%),
+                radial-gradient(900px 600px at 10% 95%, rgba(226,97,31,.08), transparent 60%),
+                linear-gradient(160deg, #1D1E22 0%, #111215 100%); }
+  body::after { content: ''; position: absolute; inset: 0; opacity: .045;
+    background: repeating-linear-gradient(115deg, #fff 0 2px, transparent 2px 150px); }
+
+  #cam { position: absolute; inset: 0; overflow: clip; transform-origin: 0 0; transition: transform 1.1s cubic-bezier(.22,.8,.2,1); z-index: 1; }
+  .device { position: absolute; transition: transform .9s cubic-bezier(.22,.8,.2,1), opacity .7s; will-change: transform, opacity; }
+  /* Sem blur/filter: custam caro em iframes e derrubam os quadros por segundo da gravação. */
+  .dim { opacity: .34; transform: scale(.965); }
+
+  /* Navegador (iframe 1280×800 reduzido) */
+  #browser { left: 64px; top: 155px; width: 1180px; border-radius: 14px; overflow: clip; background: #fff;
+    box-shadow: 0 40px 90px rgba(0,0,0,.55), 0 0 0 1px rgba(255,255,255,.06); }
+  .v #browser { left: 40px; top: 300px; width: 1000px; }
+  #browser .bar { height: 45px; background: #2A2B30; display: flex; align-items: center; padding: 0 18px; gap: 9px; }
+  #browser .dot { width: 13px; height: 13px; border-radius: 7px; }
+  #browser .url { margin: 0 auto; width: 440px; height: 28px; border-radius: 14px; background: #3A3B41; color: #d4d4d8;
+    font: 600 14px Inter; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #browser .view { width: 1180px; height: 738px; overflow: clip; position: relative; }
+  .v #browser .view { width: 1000px; height: 625px; }
+  #browser iframe { width: 1280px; height: 800px; border: 0; transform: scale(.921875); transform-origin: 0 0; background: #fff; }
+  .v #browser iframe { transform: scale(.78125); }
+
+  /* iPhone (moldura 424×880, reduzida pelo invólucro) */
+  #pw { position: absolute; left: 1342px; top: 175px; transform: scale(.85); transform-origin: 0 0; }
+  .v #pw { left: 349px; top: 1000px; transform: scale(.9); }
+  #phone { position: relative; width: 424px; height: 880px; border-radius: 66px; background: #0b0b0c; padding: 17px;
+    box-shadow: 0 50px 100px rgba(0,0,0,.6), inset 0 0 0 2px #2b2b2e, 0 0 0 1px rgba(255,255,255,.08); }
+  #phone .screen { width: 390px; height: 846px; border-radius: 50px; overflow: clip; position: relative; background: var(--warm); }
+  #phone .status { height: 46px; display: flex; align-items: center; justify-content: space-between; padding: 8px 30px 0 36px;
+    font: 600 16px Inter; color: #fff; background: var(--char); transition: background .3s, color .3s; }
+  #phone .status svg { fill: currentColor; }
+  #phone .status.light { background: var(--warm); color: #3a3a3e; }
+  #phone .island { position: absolute; top: 11px; left: 50%; transform: translateX(-50%); width: 120px; height: 34px; border-radius: 20px; background: #000; z-index: 3; }
+  #phone iframe { width: 390px; height: 800px; border: 0; display: block; background: var(--warm); }
+  #phone .home { position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); width: 134px; height: 5px; border-radius: 3px; background: rgba(0,0,0,.35); z-index: 3; }
+
+  /* Degradê atrás do título: invisível no fundo escuro, garante leitura quando o zoom passa por baixo. */
+  #scrim { position: absolute; left: 0; right: 0; top: 0; height: 210px; z-index: 4; pointer-events: none;
+    background: linear-gradient(180deg, rgba(17,18,20,.92) 0%, rgba(17,18,20,.75) 55%, rgba(17,18,20,0) 100%); }
+  .v #scrim { height: 300px; }
+  /* Legenda da cena (topo) */
+  #cap { position: absolute; left: 66px; top: 36px; width: 1500px; z-index: 6; text-shadow: 0 2px 18px rgba(0,0,0,.6); }
+  .v #cap { left: 56px; top: 80px; width: 980px; }
+  #cap .k { font: 800 17px Inter; letter-spacing: 3.6px; color: var(--orange2); text-transform: uppercase; display: flex; gap: 16px; align-items: center; }
+  #cap .k i { display: inline-block; width: 44px; height: 3px; background: var(--orange2); border-radius: 2px; }
+  #cap .t { font: 52px/1.1 'Archivo Black'; color: #fff; margin-top: 8px; }
+  .v #cap .k { font-size: 22px; } .v #cap .t { font-size: 64px; }
+  #cap .k, #cap .t { transition: transform .6s cubic-bezier(.22,.8,.2,1), opacity .5s, clip-path .6s; }
+  #cap.out .k, #cap.out .t { opacity: 0; transform: translateY(-14px); }
+  #cap .t { clip-path: inset(0 0 0 0); }
+  #cap.out .t { clip-path: inset(0 100% 0 0); }
+
+  /* Overlay: cursor, toques, destaques (fora da câmera, coordenadas da tela) */
+  #ov { position: absolute; inset: 0; pointer-events: none; z-index: 5; }
+  #cursor { position: absolute; left: 0; top: 0; width: 30px; height: 30px; transition: transform .7s cubic-bezier(.3,.7,.2,1), opacity .4s; opacity: 0;
+    filter: drop-shadow(0 3px 6px rgba(0,0,0,.45)); }
+  .ripple { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; border: 3px solid var(--orange2); animation: rip .7s ease-out forwards; }
+  .tap { position: absolute; width: 54px; height: 54px; margin: -27px 0 0 -27px; border-radius: 50%; background: rgba(255,255,255,.55);
+    box-shadow: 0 0 0 2px rgba(255,255,255,.9); animation: tap .55s ease-out forwards; }
+  @keyframes rip { from { transform: scale(.4); opacity: 1; } to { transform: scale(3.2); opacity: 0; } }
+  @keyframes tap { 0% { transform: scale(.5); opacity: .95; } 100% { transform: scale(1.5); opacity: 0; } }
+  .ring { position: absolute; border-radius: 16px; border: 3px solid var(--orange2); box-shadow: 0 0 0 6px rgba(226,97,31,.25), 0 0 40px rgba(226,97,31,.6);
+    animation: ring 1.2s ease-in-out infinite; }
+  @keyframes ring { 50% { box-shadow: 0 0 0 12px rgba(226,97,31,.12), 0 0 60px rgba(226,97,31,.8); } }
+
+  /* Vinhetas */
+  .card { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; flex-direction: column; overflow: clip;
+    background: radial-gradient(1000px 700px at 50% 42%, #2a1a12 0%, #121316 70%); transition: opacity .8s; }
+  .card.hide { opacity: 0; pointer-events: none; }
+  .logo { position: relative; width: 190px; height: 190px; display: flex; align-items: center; justify-content: center; }
+  .logo img { width: 176px; height: 176px; border-radius: 42px; position: relative; z-index: 2; box-shadow: 0 30px 60px rgba(0,0,0,.5); }
+  /* Feixes do farol: dois cones horizontais girando devagar. */
+  .beam { position: absolute; width: 3000px; height: 3000px; left: 50%; top: 50%; margin: -1500px 0 0 -1500px; animation: sweep 9s ease-in-out infinite alternate; z-index: 1; }
+  .beam::before, .beam::after { content: ''; position: absolute; top: 50%; height: 0; border-top: 150px solid transparent; border-bottom: 150px solid transparent; margin-top: -150px; }
+  .beam::before { right: 50%; border-right: 1400px solid rgba(255,214,170,.075); }
+  .beam::after { left: 50%; border-left: 1400px solid rgba(255,214,170,.075); }
+  @keyframes sweep { from { transform: rotate(-8deg); } to { transform: rotate(14deg); } }
+  .kick { font: 800 24px Inter; letter-spacing: 7px; color: var(--orange2); text-transform: uppercase; margin-top: 58px; z-index: 2; }
+  .name { font: 150px/1 'Archivo Black'; color: #fff; letter-spacing: 2px; margin-top: 18px; text-align: center; z-index: 2; }
+  .v .name { font-size: 118px; line-height: 1.02; }
+  .motto { font: 600 34px Inter; color: var(--sand); margin-top: 26px; z-index: 2; text-align: center; }
+  .pills { display: flex; gap: 14px; margin-top: 30px; z-index: 2; flex-wrap: wrap; justify-content: center; max-width: 900px; }
+  .pills span { font: 600 20px Inter; color: #fff; padding: 10px 20px; border-radius: 999px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.05); }
+  .rise { opacity: 0; transform: translateY(40px); filter: blur(8px); animation: rise .9s cubic-bezier(.2,.8,.2,1) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; filter: none; } }
+</style>
+</head>
+<body>
+<div id="cam">
+  <div class="device" id="browser">
+    <div class="bar"><span class="dot" style="background:#FF5F57"></span><span class="dot" style="background:#FEBC2E"></span><span class="dot" style="background:#28C840"></span>
+      <div class="url"><svg width="11" height="13" viewBox="0 0 11 13"><path d="M2 6V4a3.5 3.5 0 0 1 7 0v2h1v7H1V6h1zm1.5 0h4V4a2 2 0 0 0-4 0v2z" fill="#bbb"/></svg> Painel Missão Barra</div></div>
+    <div class="view"><iframe id="admin" title="Painel"></iframe></div>
+  </div>
+  <div id="pw"><div class="device" id="phone">
+    <div class="screen">
+      <div class="island"></div>
+      <div class="status" id="status"><span>9:41</span>
+        <span style="display:flex;gap:6px;align-items:center">
+          <svg width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5.5" width="3" height="6.5" rx="1"/><rect x="10" y="3" width="3" height="9" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+          <svg width="26" height="13" viewBox="0 0 26 13"><rect x=".5" y=".5" width="22" height="12" rx="3.5" fill="none" stroke="currentColor" opacity=".5"/><rect x="2.5" y="2.5" width="16" height="8" rx="2"/><rect x="24" y="4.5" width="2" height="4" rx="1" opacity=".5"/></svg>
+        </span></div>
+      <iframe id="app" title="App" allow="geolocation"></iframe>
+      <div class="home"></div>
+    </div>
+  </div></div>
+</div>
+<div id="scrim"></div>
+<div id="cap" class="out"><div class="k"><i></i><span id="ck"></span></div><div class="t" id="ct"></div></div>
+<div id="ov"><svg id="cursor" viewBox="0 0 24 24"><path d="M4 2l15 11-6.5 1.2L16 21l-3 1.4-3.4-6.9L4 20z" fill="#fff" stroke="#111" stroke-width="1.4" stroke-linejoin="round"/></svg></div>
+
+<div class="card hide" id="intro">
+  <div class="beam"></div>
+  <div class="logo"><img src="logo.png" alt=""></div>
+  <div class="kick rise" style="animation-delay:.25s">40 km a pé · Salvador</div>
+  <div class="name rise" style="animation-delay:.45s">MISSÃO BARRA</div>
+  <div class="motto rise" style="animation-delay:.85s">Segurança do início ao fim</div>
+</div>
+<div class="card hide" id="outro">
+  <div class="beam"></div>
+  <div class="logo"><img src="logo.png" alt=""></div>
+  <div class="name rise" style="animation-delay:.2s; margin-top:44px">MISSÃO BARRA</div>
+  <div class="motto rise" style="animation-delay:.75s">Missão dada é Missão Barra!</div>
+  <div class="pills rise" style="animation-delay:1.1s"><span>Monitoramento ao vivo</span><span>Pontos de apoio</span><span>Ajuda e emergência</span></div>
+</div>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const V = new URLSearchParams(location.search).has('v');
+if (V) { document.documentElement.classList.add('v'); $('outro').querySelector('.name').innerHTML = 'MISSÃO<br>BARRA'; $('intro').querySelector('.name').innerHTML = 'MISSÃO<br>BARRA'; }
+// Foco dentro dos iframes tenta rolar o palco: trava em (0,0).
+addEventListener('scroll', () => scrollTo(0, 0), true);
+window.stage = {
+  vertical: V,
+  load(adminUrl, appUrl) { if (adminUrl) $('admin').src = adminUrl; if (appUrl) $('app').src = appUrl; },
+  caption(kicker, title) {
+    const c = $('cap');
+    c.classList.add('out');
+    setTimeout(() => { $('ck').textContent = kicker; $('ct').textContent = title; if (title) c.classList.remove('out'); }, 350);
+  },
+  focus(which) {
+    $('browser').classList.toggle('dim', which === 'phone');
+    $('phone').classList.toggle('dim', which === 'browser');
+  },
+  /** Zoom de câmera: leva (x,y) da tela ao centro (cx,cy) com escala s; sem argumentos volta ao normal. */
+  camera(s = 1, x, y, ms = 1100, cx = innerWidth / 2, cy = innerHeight / 2) {
+    const cam = $('cam');
+    cam.style.transition = `transform ${ms}ms cubic-bezier(.22,.8,.2,1)`;
+    cam.style.transform = s === 1 && x == null ? 'none' : `translate(${cx - x * s}px, ${cy - y * s}px) scale(${s})`;
+  },
+  cursor(x, y, ms = 700, show = true) {
+    const c = $('cursor');
+    c.style.transition = `transform ${ms}ms cubic-bezier(.3,.7,.2,1), opacity .4s`;
+    c.style.opacity = show ? 1 : 0;
+    c.style.transform = `translate(${x - 5}px, ${y - 3}px)`;
+  },
+  click(x, y) { const r = document.createElement('div'); r.className = 'ripple'; r.style.left = x + 'px'; r.style.top = y + 'px'; $('ov').append(r); setTimeout(() => r.remove(), 800); },
+  tap(x, y) { const r = document.createElement('div'); r.className = 'tap'; r.style.left = x + 'px'; r.style.top = y + 'px'; $('ov').append(r); setTimeout(() => r.remove(), 700); },
+  ring(x, y, w, h, id = 'ring') { stage.unring(id); const r = document.createElement('div'); r.className = 'ring'; r.id = id;
+    Object.assign(r.style, { left: x - 6 + 'px', top: y - 6 + 'px', width: w + 12 + 'px', height: h + 12 + 'px' }); $('ov').append(r); },
+  unring(id = 'ring') { const r = $(id); if (r) r.remove(); },
+  status(light) { $('status').classList.toggle('light', !!light); },
+  card(id, show) { $(id).classList.toggle('hide', !show); if (show) $(id).querySelectorAll('.rise').forEach((n) => { n.style.animation = 'none'; n.offsetHeight; n.style.animation = ''; }); },
+};
+</script>
+</body>
+</html>

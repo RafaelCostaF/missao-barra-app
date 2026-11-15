@@ -30,7 +30,7 @@ export function ReportTab({ sessionId, alerts, checkpoints }: { sessionId: strin
         <div className="kpi"><b>{k.participants}</b>Participantes</div>
         <div className="kpi ok"><b>{Math.round(k.completionRate * 100)}%</b>Concluíram</div>
         <div className="kpi"><b>{fmtDuration(k.medianFinishS)}</b>Tempo mediano</div>
-        <div className="kpi warn"><b>{k.calls}</b>Chamados · {k.callsPerPerson.toFixed(2)}/pessoa</div>
+        <div className="kpi warn"><b>{k.calls}</b>Chamados · {k.callsPerPerson.toFixed(2).replace('.', ',')}/pessoa</div>
         <div className="kpi"><b>{fmtDuration(k.medianResolutionS)}</b>Resposta mediana</div>
       </div>
 

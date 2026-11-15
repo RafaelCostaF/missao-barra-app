@@ -111,7 +111,7 @@ export function Map(props: {
               eventHandlers={{ click: () => onSelect?.(p.user_id) }}>
               <Popup>
                 <b>{p.display_name}</b><br />
-                {SIGNAL_LABEL[s]} · {(p.distance_m / 1000).toFixed(1)} km<br />
+                {SIGNAL_LABEL[s]} · {(p.distance_m / 1000).toFixed(1).replace('.', ',')} km<br />
                 Última posição: {fmtTime(p.last_at)}{p.battery != null ? ` · bateria ${p.battery}%` : ''}
                 {profileHref && <><br /><a href={profileHref(p.user_id)}>Ver perfil e contato →</a></>}
               </Popup>

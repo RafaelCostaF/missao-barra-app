@@ -1,40 +1,40 @@
 ---
 name: video-demo
-description: Cria o vídeo de demonstração (~60 s) do Missão Barra — organização no navegador e participantes no celular, com caminhada simulada, acompanhamento ao vivo, alertas, conversa de ajuda e perfil — e o texto de narração para o ElevenLabs. Use quando pedirem vídeo, demo, mockup em vídeo ou narração do produto.
+description: Cria o vídeo de demonstração (~55 s) do Missão Barra — organização no navegador e participante no celular, caminhada simulada, acompanhamento ao vivo, avanço por ponto, ajuda/chat, emergência e perfil — horizontal e vertical, com narração ElevenLabs. Use quando pedirem vídeo, demo, mockup em vídeo ou narração do produto.
 ---
 
 # Vídeo de demonstração — Missão Barra
 
-Objetivo: em ~60 s mostrar as **funcionalidades principais**, alternando os dois lados do produto:
-- **Organização** → painel web no **navegador** (janela de desktop 1440×900 dentro de uma moldura de navegador).
-- **Participante** → app no **celular** (moldura de iPhone, 390×844).
-
-Foco em quem usa, sem detalhes técnicos. Cada cena = uma funcionalidade, uma frase de narração.
+**Estado (2026-11):** vídeo final aprovado e entregue em `~/Downloads/missao-barra-demo{,-vertical}{,-web-av1,-web-h264}.mp4`; narração `~/Downloads/narracao-missao-barra.mp3` (51,9 s, ElevenLabs v3). Só refazer se o usuário pedir.
 
 ## Regras
-1. **Roteiro aprovado antes de gravar.** Sempre comece pelo planejamento por segundo e por tópico (tabela abaixo) e espere o "ok" do usuário. Mudou o roteiro → nova aprovação.
-2. **Pessoas fictícias, aparência real.** Nomes brasileiros realistas e fotos de rosto **geradas por IA ou de banco com licença de uso** (ex.: randomuser.me, Unsplash com licença). Nunca dados, nomes ou fotos de usuários reais do projeto. Contas `*@teste.dev`, evento `is_test`.
-3. **Nada de dado sensível na tela:** sem e-mails reais, telefones reais (usar `+55 71 9xxxx` fictícios de teste), chaves ou URLs do Supabase. Na moldura do navegador, a barra de endereço mostra só "Painel Missão Barra" (sem URL real nem inventada).
-4. **Limpar ao final:** apagar evento de teste e contas `*@teste.dev` (primeiro os alertas delas, depois `auth.users`). Contas `sim-*` do `simulate.mts` ficam.
-5. Narração em pt-BR, tom acolhedor e direto, ~2,3 palavras/s (≈ 135–150 palavras em 60 s). Texto entregue pronto para colar no ElevenLabs.
+1. **Roteiro por segundo aprovado antes de gravar** (tabela `Tempo | Cena | Tela | Ação | Narração | Legenda`). Mudou → nova aprovação.
+2. **Pessoas fictícias**: nomes brasileiros, rostos gerados por IA (`https://thispersondoesnotexist.com/random-person.jpeg?<n>` com User-Agent de navegador; o gerador tem viés para pele clara — baixar várias levas e escolher diversidade; nada de crianças). Nunca dados/fotos de usuários reais. Contas `video-*@teste.dev`, evento `is_test`.
+3. Nada sensível na tela (e-mails/telefones reais, chaves, URLs do Supabase). Barra do navegador mostra só "Painel Missão Barra".
+4. Saídas em `~/Downloads` (preferência do usuário). Limpar no fim: `cleanup.mts --all`.
+5. Respostas curtas; se o usuário disser "pare", entregue o que existe.
 
-## Formato do planejamento (entregar no chat para aprovação)
-Tabela por segundo: `Tempo | Tópico | Tela (Navegador / Celular) | O que acontece | Narração | Legenda na tela`.
-Depois da tabela: lista de participantes fictícios (nome, papel na história), e o texto corrido da narração.
+## Roteiro aprovado (tempos = falas da narração, via Whisper)
+intro 6,1 · create 5,8 · join 4,8 · runner 5,9 · live 5,3 · funnel 5,7 · help 5,6 · reply 4,8 · profile 4,4 · outro 7,1 (total 55,5 s).
+Títulos (topo): Organização·navegador/"Crie o evento em minutos" · Participante·celular/"Entrar é um toque" · Modo corrida/"O caminho sempre à frente" · Acompanhamento ao vivo/"Todo mundo no mapa" · Pontos de apoio/"Quem passou e quem falta" · Ajuda/"Conversa direta com a equipe" · Resposta na hora/"Emergência: é só segurar" · Perfil/"Foto e contato de emergência". Vinhetas: "40 km a pé · Salvador / MISSÃO BARRA / Segurança do início ao fim" e "Missão dada é Missão Barra!" + 3 etiquetas.
+Elenco: Juliana Ramos (protagonista, celular) + 15 caminhantes (Carla Menezes fica "sem sinal"). Percurso: orla Farol da Barra → Buraquinho, 13 pontos, 40,1 km.
 
-## Execução (após aprovação)
-1. **Pré-requisitos**
-   - `ffmpeg`/`ffprobe` em `~/.local/bin`; Playwright Chromium (`apps/admin`).
-   - Mapa no celular: o app na web usa `apps/mobile/web/maps-stub.js` (caixa cinza). Para o vídeo, trocar o stub por um mapa Leaflet real (mesma lib do painel; tiles Carto Voyager/OSM) que implemente `MapView` (ref: `animateCamera`, `setCamera`, `fitToCoordinates`, `getCamera`, `animateToRegion`; `showsUserLocation` via `navigator.geolocation` + `onUserLocationChange`), `Marker` (filhos via portal em `L.divIcon`, `showCallout`), `Polyline` (`strokeColor`, `strokeWidth`, `lineDashPattern`). Só web; o app no iPhone não muda.
-   - Servidores: painel `npx vite --port 5179` (env `VITE_SUPABASE_*`) e app `npm run web` em `apps/mobile` na porta 8099 (env `EXPO_PUBLIC_SUPABASE_*`, sempre com caminho absoluto do `.env.cloud`; com `CI=1` reiniciar após editar).
-2. **Dados** (script `tsx` com service role, nunca em produção real):
-   - Participantes fictícios: criar contas `@teste.dev`, `display_name`, `profile_contacts` completo (telefone de teste, contato de emergência fictício), foto enviada ao bucket `avatars/<uid>/…` (baixar as fotos para o scratchpad; conferir licença).
-   - Evento: criado **na tela** pela organização durante a gravação; percurso copiado de um evento modelo com `route` pelas ruas (ex.: "Missão barra - ensaio de campo 2").
-   - Multidão andando: `npm run simulate -- --session <id> --n 15 --every 2 --stale 0.1 --emergency 0` com `SIM_SPEEDUP` alto; renomear os simulados para os nomes fictícios com foto, se aparecerem em destaque.
-3. **Gravação** (Playwright, `recordVideo` 1920×1080): página "palco" local com a moldura do navegador (painel) e a do iPhone (app) lado a lado + faixa de legenda; ações por `frameLocator`. Um cronômetro de cena mantém cada ação dentro da janela do roteiro (aguarda o início da cena; ações que atrasarem são cortadas). Caminhada do participante no celular: `context.setGeolocation` a cada 1 s ao longo do percurso, ~3 m/s (pace realista). Salvar o instante t0 para o corte.
-4. **Narração ElevenLabs**: gerar `narracao.txt` (texto corrido) e `cenas.json` (início de cada fala). Opção A: o usuário cola o texto no ElevenLabs e salva `narracao.mp3`. Opção B: API com a chave do usuário em variável de ambiente (`ELEVENLABS_API_KEY`, `ELEVENLABS_VOICE_ID`; modelo `eleven_multilingual_v2`), uma fala por cena; nunca gravar a chave em arquivo do repo.
-5. **Montagem (ffmpeg)**: cortar a partir de t0, 60 s, H.264 1080p 30 fps; cada fala posicionada no início da cena (`adelay` + `amix`), conferir com `ffprobe` que nenhuma fala passa da cena; vinheta inicial/final com logo (`packages/ui-tokens/icons/icon-512.png`) e lema "Missão dada é Missão Barra!". Saída em `~/Videos/missao-barra-demo.mp4` (ou onde o usuário pedir) — fora do repo.
-6. **Revisão**: extrair 1 quadro por cena (`ffmpeg -ss … -frames:v 1`), olhar os quadros, corrigir e só então entregar. Limpar os dados (regra 4).
+## Pipeline (scripts em `scripts/`, rodar da raiz do repo com `set -a; source supabase/.env.cloud; set +a`)
+`DIR` = pasta de trabalho (scratchpad). Precisa de `DIR/timeline.json` (`[{id,d}]`), `DIR/subtitles.json` (`[[início_s,"texto"],…,[fim,""]]`), `DIR/logo.png` (de `packages/ui-tokens/icons/icon-512.png`), `DIR/cast/NN.jpg` (rostos; o setup baixa do Storage se faltar).
+1. Servidores: painel `cd apps/admin && VITE_SUPABASE_URL=… VITE_SUPABASE_ANON_KEY=… npx vite --port 5179 --strictPort --host 127.0.0.1`; app `cd apps/mobile && EXPO_PUBLIC_SUPABASE_URL=… EXPO_PUBLIC_SUPABASE_ANON_KEY=… CI=1 npx expo start --web --port 8099` (com CI=1 não recarrega arquivos: reiniciar após editar); palco `python3 -m http.server 8098 --bind 127.0.0.1 -d $DIR` (precisa ser http/localhost, não file://).
+2. `npx tsx .claude/skills/video-demo/scripts/setup.mts $DIR` — percurso pelas ruas + elenco (idempotente) → `state.json`.
+3. `cleanup.mts` (apaga eventos do vídeo) e `record.mts $DIR` (horizontal → `DIR/h`) / `VERTICAL=1 record.mts $DIR` (→ `DIR/v`). Cria o evento na tela, entra Juliana, caminhantes com histórico de posições (o relatório usa posições a ≤150 m de cada ponto). Falhas viram `falha-<cena>.png`.
+4. `[VERTICAL=1] compose.mts $DIR <narracao.mp3> ~/Downloads` (~7 min cada): interpolação mci 30 fps por cena em paralelo, acelera cena que passou da fala, legenda + barra de progresso como camadas, mestre H.264 CRF 15, versões ≤14,5 MB (AV1 svt crf 30 `scm=1`, H.264 2-pass ~1,9 Mbps), quadros em `review/`. **Olhar os quadros antes de entregar.**
+5. `cleanup.mts --all`.
 
-## Identidade
-Cores e fontes de `packages/ui-tokens` (laranja `#C93C05`, carvão, areia; Archivo Black nos títulos, Inter no texto). Legendas curtas (≤ 6 palavras), caixa alta só em títulos.
+## Armadilhas já resolvidas (não repetir)
+- Artifact: limite 15 MB/arquivo → H.264 fica borrado; publicar `<video>` com `<source>` AV1 primeiro e H.264 de reserva.
+- Captura via CDP screencast (~25 fps): `blur`/`filter` no palco derruba fps; ack antes de gravar o quadro.
+- Foco em input dentro de iframe rola o palco: `overflow: clip` + listener de scroll.
+- Histórico é compartilhado entre os iframes: `history.back()` ou o "voltar" do app fecha a conversa no painel → reabrir o painel por URL antes da cena seguinte; voltar no app tocando a seta (posição ao lado do título).
+- `frame.reload()` não existe: `frame.evaluate(() => location.reload())`.
+- Leaflet `flyTo` com origem = destino gera NaN → usar `setView` animado. Tiles Carto exigem chave → OSM.
+- Na web: sem notificação local (`useNotices`) e sem localização em 2º plano (`location.ts`); o mapa é Leaflet (`apps/mobile/web/maps-stub.js`, só no bundle web).
+- Botões do painel: "Publicar evento →"/"Iniciar evento →" (usar regex); abas são links (`nav.tabs`).
+- Lista de eventos antigos de teste: esconder linhas no DOM durante a gravação (não apagar).
+- Contas reais (ex.: alerta aberto do Rafael) aparecem no AlertCenter do painel: não abrir o modal de alertas no vídeo; usar a aba Atendimentos do evento.

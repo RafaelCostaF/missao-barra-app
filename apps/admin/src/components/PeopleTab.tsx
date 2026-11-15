@@ -164,7 +164,7 @@ function PersonModal({ sessionId, person: p, alerts, report, now, onClose, onCha
             <h3>Agora</h3>
             <p><span className={`badge ${s}`}>{SIGNAL_LABEL[s]}</span></p>
             <p>Última posição: <b>{fmtTime(p.last_at)}</b> <span className="muted">({ago(p.last_at, now)})</span></p>
-            <p>{(p.distance_m / 1000).toFixed(1)} km · {p.passed} ponto(s) de apoio</p>
+            <p>{(p.distance_m / 1000).toFixed(1).replace('.', ',')} km · {p.passed} {p.passed === 1 ? 'ponto' : 'pontos'} de apoio</p>
             <p>Bateria: <b className={p.battery != null && p.battery <= LOW_BATTERY ? 'low' : ''}>{p.battery != null ? `${p.battery}%` : 'sem informação'}</b></p>
             <div className="row">
               <a className="btn secondary" href={`#/evento/${sessionId}/atendimentos/${p.user_id}`}>Conversa de ajuda</a>

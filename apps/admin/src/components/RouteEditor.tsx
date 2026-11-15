@@ -60,7 +60,7 @@ export function RouteEditor({ sessionId, initial, onSaved, status, path }: {
       await api.saveRoute(sessionId, null).catch(() => undefined);
     }
     onSaved(await api.checkpoints(sessionId));
-    toast(streets ? `Percurso salvo pelas ruas: ${sorted.length} ponto(s) de apoio.` : `Percurso salvo (${sorted.length} pontos), mas o desenho pelas ruas falhou: ficou em linha reta. Tente salvar de novo.`, streets ? 'ok' : 'info');
+    toast(streets ? `Percurso salvo pelas ruas: ${sorted.length} ${sorted.length === 1 ? 'ponto' : 'pontos'} de apoio.` : `Percurso salvo (${sorted.length} pontos), mas o desenho pelas ruas falhou: ficou em linha reta. Tente salvar de novo.`, streets ? 'ok' : 'info');
   }
 
   return (
