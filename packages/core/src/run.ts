@@ -71,6 +71,10 @@ export function createRunStats() {
         if (fixes.length > 2000) fixes = fixes.slice(-1000);
       }
     },
+    /** Fixes aceitos neste aparelho (reserva para compartilhar a corrida se o servidor ainda não tem a trilha). */
+    track(): Fix[] {
+      return fixes.map((f) => ({ lat: f.p.lat, lng: f.p.lng, accuracy: 5, recordedAt: new Date(f.t).toISOString() }));
+    },
     snapshot(now = Date.now()): RunSnapshot {
       const last = fixes.at(-1);
       let currentPaceS: number | null = null, speedKmh: number | null = null;

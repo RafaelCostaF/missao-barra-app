@@ -49,6 +49,8 @@ function ok<R extends { data: unknown; error: unknown }>(r: R): NonNullable<R['d
 }
 
 /** Acesso a dados compartilhado por app e painel. As regras de permissão ficam no banco (RLS). */
+let channelSeq = 0;
+
 export function createApi(db: SupabaseClient) {
   const me = async () => {
     const id = (await db.auth.getUser()).data.user?.id;
@@ -167,6 +169,10 @@ export function createApi(db: SupabaseClient) {
       ok(await db.from('participant_events').select('event, actor, at').eq('session_id', sessionId).eq('user_id', userId).order('at')) as
         { event: string; actor: string | null; at: string }[],
 
+    /** Trilha da própria pessoa na sessão (compartilhar corrida / GPX). Retida 30 dias no servidor. */
+    myTrack: async (sessionId: string) =>
+      ok(await db.rpc('my_track', { p_session: sessionId })) as [number, number, number | null, number][],
+
     // ---------- perfil e contato ----------
     myContact: async () => ok(await db.from('profile_contacts').select('*').eq('user_id', await me()).maybeSingle()) as Contact | null,
     /** Campos editáveis pelo próprio usuário. Celular em E.164 (+55…); trocar o número desfaz a verificação. */
@@ -255,7 +261,8 @@ export function createApi(db: SupabaseClient) {
      * o callback serve de gatilho para recarregar live_participants.
      */
     subscribe(name: string, tables: Change['table'][], onChange: (c: Change) => void, filter?: string): RealtimeChannel {
-      const ch = db.channel(name);
+      // Nome único: duas telas abertas com o mesmo tópico (ex.: Percurso + Compartilhar) não podem reusar o canal já assinado.
+      const ch = db.channel(`${name}#${++channelSeq}`);
       for (const table of tables)
         ch.on('postgres_changes' as never, { event: '*', schema: 'public', table, ...(filter && { filter }) }, (p: any) =>
           onChange({ table, eventType: p.eventType, new: p.new ?? {}, old: p.old ?? {} }),

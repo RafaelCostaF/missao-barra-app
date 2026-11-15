@@ -17,3 +17,4 @@ export * from './strava';
 export * from './run';
 export * from './help';
 export * from './route';
+export * from './share';

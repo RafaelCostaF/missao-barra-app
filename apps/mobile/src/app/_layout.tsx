@@ -43,6 +43,7 @@ export default function RootLayout() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="login" options={{ headerShown: false }} />
       <Stack.Screen name="session/[id]" options={{ title: 'Percurso' }} />
+      <Stack.Screen name="share/[id]" options={{ title: 'Compartilhar corrida' }} />
       <Stack.Screen name="race/new" options={{ title: 'Nova corrida' }} />
       <Stack.Screen name="help/[id]" options={{ title: 'Ajuda da organização', headerBackTitle: 'Voltar' }} />
       <Stack.Screen name="cadastro" options={{ title: 'Cadastro', headerBackTitle: 'Voltar' }} />

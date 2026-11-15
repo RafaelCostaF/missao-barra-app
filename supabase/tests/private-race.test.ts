@@ -55,6 +55,16 @@ describe('corrida privada', () => {
     expect(seen.distance_m).toBe(250);
   });
 
+  it('cada um lê só a própria trilha (compartilhar corrida / GPX)', async () => {
+    const [{ my_track: mine }] = await as(ana, (q) => q(`select my_track($1)`, [race]));
+    expect(mine).toHaveLength(2);
+    expect(mine[0][0]).toBeCloseTo(-12.957, 3);
+    expect(mine[0][3]).toBeLessThan(mine[1][3]); // ordenada pelo horário (ms)
+    const [{ my_track: other }] = await as(bia, (q) => q(`select my_track($1)`, [race]));
+    expect(other).toEqual([]); // bia não enviou; não vê a trilha da ana
+    await expect(as(bia, (q) => q(`select * from positions where session_id = $1`, [race]))).resolves.toEqual([]);
+  });
+
   it('quem desliga o compartilhamento some do mapa dos amigos', async () => {
     await as(ana, (q) => q(`update participants set sharing = false where session_id = $1 and user_id = $2`, [race, ana]));
     const [seen] = await as(bia, (q) => q(`select last_lat from live_participants where session_id = $1 and user_id = $2`, [race, ana]));

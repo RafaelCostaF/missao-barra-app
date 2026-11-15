@@ -156,6 +156,9 @@ export default function SessionScreen() {
       <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 24 }} showsVerticalScrollIndicator={false}>
 
         {mine?.status === 'finished' && <RunPanel sessionId={id} me={mine} participants={participants} now={now} />}
+        {mine?.status === 'finished' && (
+          <FadeIn><Button icon="share-social-outline" haptic="light" label="Compartilhar corrida" onPress={() => router.push(`/share/${id}`)} /></FadeIn>
+        )}
 
         {/* Antes/depois de correr: mapa geral do percurso. */}
         {!tracking && (
